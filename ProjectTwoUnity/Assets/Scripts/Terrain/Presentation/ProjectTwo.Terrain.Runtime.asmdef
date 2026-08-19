@@ -1,0 +1,17 @@
+{
+    "name": "ProjectTwo.Terrain.Runtime",
+    "rootNamespace": "ProjectTwo.Terrain.Runtime",
+    "references": [
+        "ProjectTwo.Terrain.Core",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

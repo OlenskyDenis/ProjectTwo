@@ -1,0 +1,19 @@
+{
+    "name": "ProjectTwo.Terrain.Editor",
+    "rootNamespace": "ProjectTwo.Terrain.Editor",
+    "references": [
+        "ProjectTwo.Terrain.Core",
+        "ProjectTwo.Terrain.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
