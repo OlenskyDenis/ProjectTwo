@@ -58,5 +58,32 @@ namespace ProjectTwo.Terrain.Tests.EditMode
                 }
             }
         }
+
+        [Test]
+        public void GenerateHeightMap_HandlesNegativeOrZeroDimensions_WithSafeFallbacks()
+        {
+            NoiseSettings settings = NoiseSettings.Default;
+            ChunkCoordinate coord = new ChunkCoordinate(0, 0);
+
+            HeightMap map = _generator.GenerateHeightMap(0, -5, settings, coord);
+
+            Assert.IsNotNull(map);
+            Assert.AreEqual(120, map.Width);
+            Assert.AreEqual(120, map.Height);
+        }
+
+        [Test]
+        public void GenerateHeightMap_TracksMinAndMaxValues()
+        {
+            NoiseSettings settings = NoiseSettings.Default;
+            settings.Octaves = 3;
+            ChunkCoordinate coord = new ChunkCoordinate(1, -1);
+
+            HeightMap map = _generator.GenerateHeightMap(16, 16, settings, coord);
+
+            Assert.LessOrEqual(map.MinValue, map.MaxValue);
+            Assert.GreaterOrEqual(map.MinValue, 0f);
+            Assert.LessOrEqual(map.MaxValue, 1f);
+        }
     }
 }

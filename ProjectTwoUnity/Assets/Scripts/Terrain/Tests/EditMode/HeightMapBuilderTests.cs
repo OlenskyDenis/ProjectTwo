@@ -1,5 +1,6 @@
 namespace ProjectTwo.Terrain.Tests.EditMode
 {
+    using System;
     using NUnit.Framework;
     using ProjectTwo.Terrain.Core.Models;
     using ProjectTwo.Terrain.Core.Services;
@@ -13,6 +14,12 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         public void SetUp()
         {
             _builder = new HeightMapBuilder(new PerlinNoiseGenerator());
+        }
+
+        [Test]
+        public void Constructor_ThrowsOnNullGenerator()
+        {
+            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder(null));
         }
 
         [Test]

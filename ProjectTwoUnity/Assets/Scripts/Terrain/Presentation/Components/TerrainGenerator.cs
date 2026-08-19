@@ -89,6 +89,11 @@ namespace ProjectTwo.Terrain.Presentation.Components
                     }
                 }
 
+                if (FindAnyObjectByType<FPSCounter>() == null)
+                {
+                    gameObject.AddComponent<FPSCounter>();
+                }
+
                 UpdateVisibleChunks();
             }
         }
@@ -199,7 +204,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 return;
             }
 
-            int resolution = Configuration.ChunkResolution;
+            int resolution = Configuration.ChunkResolution + 1;
             NoiseSettings noise = Configuration.NoiseSettings;
 
             Task.Run(() =>
@@ -269,9 +274,10 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private void GenerateEditorPreview()
         {
             ChunkCoordinate centerCoord = new ChunkCoordinate(0, 0);
+            int resolution = Configuration.ChunkResolution + 1;
             HeightMap map = _heightMapBuilder.GenerateHeightMap(
-                Configuration.ChunkResolution,
-                Configuration.ChunkResolution,
+                resolution,
+                resolution,
                 Configuration.NoiseSettings,
                 centerCoord);
 
@@ -330,7 +336,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
             {
                 Vector3 origin = coord.ToWorldPosition(Configuration.ChunkSize);
                 float localX = (worldX - origin.x + Configuration.ChunkSize * 0.5f) / Configuration.ChunkSize;
-                float localZ = (origin.z + Configuration.ChunkSize * 0.5f - worldZ) / Configuration.ChunkSize;
+                float localZ = (worldZ - origin.z + Configuration.ChunkSize * 0.5f) / Configuration.ChunkSize;
 
                 localX = Mathf.Clamp01(localX);
                 localZ = Mathf.Clamp01(localZ);

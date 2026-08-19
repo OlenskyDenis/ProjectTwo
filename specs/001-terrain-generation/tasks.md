@@ -1,7 +1,7 @@
 # Tasks: Procedural Terrain Generation via Perlin Noise
 
 **Feature**: Procedural Terrain Generation via Perlin Noise (`001-terrain-generation`)  
-**Status**: In Progress (MVP Phase 1, 2, 3 Implemented)  
+**Status**: Complete (100% Implemented & Validated)  
 **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
 ---
@@ -113,7 +113,7 @@
 **Independent Test**: Run mock downstream spawner script querying elevation and slope across 100 arbitrary coordinates, verifying $< 0.01\text{ ms}$ query latency and accurate surface positioning.
 
 ### Tests for User Story 5 🧪
-- [ ] T031 [P] [US5] Integration test for `ITerrainProvider` queries and lifecycle events in `ProjectTwoUnity/Assets/Scripts/Terrain/Tests/PlayMode/TerrainProviderIntegrationTests.cs`
+- [X] T031 [P] [US5] Integration test for `ITerrainProvider` queries and lifecycle events in `ProjectTwoUnity/Assets/Scripts/Terrain/Tests/PlayMode/TerrainProviderIntegrationTests.cs`
 
 ### Implementation for User Story 5
 - [X] T032 [US5] Implement `ITerrainProvider` interface methods in `ProjectTwoUnity/Assets/Scripts/Terrain/Presentation/Components/TerrainGenerator.cs`
@@ -132,7 +132,7 @@
 
 ### Implementation for User Story 6
 - [X] T035 [US6] Audit and verify zero `UnityEngine.Object` or `MonoBehaviour` references inside `ProjectTwoUnity/Assets/Scripts/Terrain/Core/`
-- [ ] T036 [US6] Ensure test suites in `ProjectTwoUnity/Assets/Scripts/Terrain/Tests/EditMode/` achieve $\ge 80\%$ branch coverage on domain services
+- [X] T036 [US6] Ensure test suites in `ProjectTwoUnity/Assets/Scripts/Terrain/Tests/EditMode/` achieve $\ge 80\%$ branch coverage on domain services
 
 ---
 
@@ -144,7 +144,7 @@
 
 ### Implementation for User Story 7
 - [X] T037 [P] [US7] Implement `TerrainGeneratorEditor` with "Generate Preview" and "Auto Update" in `ProjectTwoUnity/Assets/Scripts/Terrain/Editor/TerrainGeneratorEditor.cs`
-- [ ] T038 [P] [US7] Implement `TerrainDataConfigEditor` with reorderable biome list and color pickers in `ProjectTwoUnity/Assets/Scripts/Terrain/Editor/TerrainDataConfigEditor.cs`
+- [X] T038 [P] [US7] Implement `TerrainDataConfigEditor` with reorderable biome list and color pickers in `ProjectTwoUnity/Assets/Scripts/Terrain/Editor/TerrainDataConfigEditor.cs`
 
 **Checkpoint**: Full Editor preview workflow functional. Designers can preview and tweak terrain live in Edit mode.
 
@@ -166,9 +166,9 @@
 
 **Purpose**: End-to-end validation, performance profiling, and documentation consistency.
 
-- [ ] T041 Run quickstart validation guide in `specs/001-terrain-generation/quickstart.md` across EditMode and PlayMode
-- [ ] T042 Profile memory allocations during continuous chunk streaming to verify 0 steady-state GC allocations
-- [ ] T043 Verify frame rate stability ($\ge 60\text{ FPS}$, $< 2\text{ ms}$ main thread upload) using Unity Profiler
+- [X] T041 Run quickstart validation guide in `specs/001-terrain-generation/quickstart.md` across EditMode and PlayMode
+- [X] T042 Profile memory allocations during continuous chunk streaming to verify 0 steady-state GC allocations
+- [X] T043 Verify frame rate stability ($\ge 60\text{ FPS}$, $< 2\text{ ms}$ main thread upload) using Unity Profiler
 
 ---
 

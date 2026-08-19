@@ -5,17 +5,18 @@ namespace ProjectTwo.Terrain.Presentation.Config
 
     /// <summary>
     /// Standalone ScriptableObject configuration asset holding all terrain generation parameters.
+    /// Automatically enforces valid mathematical multiples to guarantee seamless chunk borders across all LOD tiers.
     /// </summary>
     [CreateAssetMenu(fileName = "TerrainConfig", menuName = "Terrain/Configuration Preset", order = 120)]
     public class TerrainDataConfig : ScriptableObject
     {
         [Header("Chunk Grid Setup")]
-        [Tooltip("Size of each chunk in world units (must divide evenly by LOD steps).")]
-        [Range(16, 480)]
+        [Tooltip("Size of each chunk in world units (automatically snapped to multiples of 12 for seamless LODs).")]
+        [Range(24, 480)]
         public int ChunkSize = 240;
 
-        [Tooltip("Number of vertices per edge for a chunk (e.g. 120 or 240).")]
-        [Range(16, 240)]
+        [Tooltip("Number of grid segments per edge (must be divisible by LOD steps 1, 2, 4, 6, e.g., 24, 48, 72, 96, 120, 240). Heightmap will contain (Resolution + 1) vertices.")]
+        [Range(24, 240)]
         public int ChunkResolution = 120;
 
         [Header("Noise Configuration")]
@@ -53,12 +54,26 @@ namespace ProjectTwo.Terrain.Presentation.Config
             {
                 Regions = TerrainRegion.CreateDefaultRegions();
             }
+
+            Validate();
+        }
+
+        private void OnValidate()
+        {
+            Validate();
         }
 
         public void Validate()
         {
-            if (ChunkSize <= 0) ChunkSize = 240;
-            if (ChunkResolution < 16) ChunkResolution = 16;
+            // Snap ChunkResolution to nearest multiple of 12 (min 24, max 240)
+            if (ChunkResolution < 24) ChunkResolution = 24;
+            if (ChunkResolution > 240) ChunkResolution = 240;
+            ChunkResolution = Mathf.RoundToInt(ChunkResolution / 12f) * 12;
+
+            // Snap ChunkSize to nearest multiple of 12 (min 24)
+            if (ChunkSize < 24) ChunkSize = 24;
+            ChunkSize = Mathf.RoundToInt(ChunkSize / 12f) * 12;
+
             if (MaxViewDistance < 50f) MaxViewDistance = 50f;
             NoiseSettings.Validate();
 
