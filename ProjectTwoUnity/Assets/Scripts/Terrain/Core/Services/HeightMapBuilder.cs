@@ -6,7 +6,7 @@ namespace ProjectTwo.Terrain.Core.Services
 
     /// <summary>
     /// Service responsible for building 2D heightmaps using an injected ITerrainShaper or INoiseGenerator.
-    /// Pure C# domain service.
+    /// Pure C# domain service supporting noise, tectonics, and hydrological river networks.
     /// </summary>
     public class HeightMapBuilder
     {
@@ -42,6 +42,39 @@ namespace ProjectTwo.Terrain.Core.Services
             RiverSettings river,
             FalloffSettings falloff)
         {
+            return GenerateCompoundHeightMap(
+                startX,
+                startZ,
+                size,
+                resolution,
+                noise,
+                macro,
+                default,
+                null,
+                heightCurve,
+                water,
+                river,
+                default,
+                null,
+                falloff);
+        }
+
+        public HeightMap GenerateCompoundHeightMap(
+            float startX,
+            float startZ,
+            float size,
+            int resolution,
+            NoiseSettings noise,
+            MacroMaskSettings macro,
+            TectonicSettings tectonics,
+            TectonicBoundary[] tectonicBoundaries,
+            HeightCurveSettings heightCurve,
+            WaterSettings water,
+            RiverSettings river,
+            HydrologySettings hydrology,
+            RiverGraph riverGraph,
+            FalloffSettings falloff)
+        {
             int vertexCount = resolution + 1;
             float[,] buffer = new float[vertexCount, vertexCount];
 
@@ -52,9 +85,13 @@ namespace ProjectTwo.Terrain.Core.Services
                 resolution,
                 noise,
                 macro,
+                tectonics,
+                tectonicBoundaries,
                 heightCurve,
                 water,
                 river,
+                hydrology,
+                riverGraph,
                 falloff,
                 buffer);
 

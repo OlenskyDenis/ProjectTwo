@@ -18,6 +18,10 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private Mesh _visualMesh;
         private Mesh _collisionMesh;
 
+        private MeshFilter _riverMeshFilter;
+        private MeshRenderer _riverMeshRenderer;
+        private Mesh _riverMesh;
+
         public ChunkCoordinate Coordinate { get; private set; }
         public HeightMap HeightMap { get; private set; }
         public int CurrentLOD { get; private set; } = -1;
@@ -28,6 +32,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private TerrainRegion[] _regions;
 
         private static Material _cachedDefaultMaterial;
+        private static Material _cachedDefaultRiverMaterial;
 
         private void Awake()
         {
@@ -179,6 +184,70 @@ namespace ProjectTwo.Terrain.Presentation.Components
             }
         }
 
+        public void SetRiverMesh(RiverWaterMeshData riverMeshData, Material riverMaterial = null)
+        {
+            if (riverMeshData == null || riverMeshData.IsEmpty)
+            {
+                if (_riverMeshFilter != null && _riverMeshFilter.gameObject.activeSelf)
+                {
+                    _riverMeshFilter.gameObject.SetActive(false);
+                }
+                return;
+            }
+
+            if (_riverMeshFilter == null)
+            {
+                var riverChild = new GameObject("RiverWaterMesh");
+                riverChild.transform.SetParent(transform, false);
+                _riverMeshFilter = riverChild.AddComponent<MeshFilter>();
+                _riverMeshRenderer = riverChild.AddComponent<MeshRenderer>();
+                _riverMesh = new Mesh { name = "ChunkRiverWaterMesh" };
+                _riverMeshFilter.sharedMesh = _riverMesh;
+            }
+
+            _riverMeshFilter.gameObject.SetActive(true);
+
+            if (_riverMesh == null)
+            {
+                _riverMesh = new Mesh { name = "ChunkRiverWaterMesh" };
+                _riverMeshFilter.sharedMesh = _riverMesh;
+            }
+
+            _riverMesh.Clear();
+            _riverMesh.vertices = riverMeshData.Vertices;
+            _riverMesh.normals = riverMeshData.Normals;
+            _riverMesh.uv = riverMeshData.UVs;
+            _riverMesh.triangles = riverMeshData.Triangles;
+            _riverMesh.RecalculateBounds();
+
+            if (_riverMeshRenderer != null)
+            {
+                if (riverMaterial != null)
+                {
+                    _riverMeshRenderer.sharedMaterial = riverMaterial;
+                }
+                else
+                {
+                    if (_cachedDefaultRiverMaterial == null)
+                    {
+                        Shader waterShader = Shader.Find("ProjectTwo/Terrain/WaterSimple") ??
+                                             Shader.Find("Universal Render Pipeline/Lit") ??
+                                             Shader.Find("Standard");
+                        if (waterShader != null)
+                        {
+                            _cachedDefaultRiverMaterial = new Material(waterShader) { name = "DefaultRiverWaterMat" };
+                            _cachedDefaultRiverMaterial.color = new Color(0.15f, 0.45f, 0.85f, 0.85f);
+                        }
+                    }
+
+                    if (_cachedDefaultRiverMaterial != null)
+                    {
+                        _riverMeshRenderer.sharedMaterial = _cachedDefaultRiverMaterial;
+                    }
+                }
+            }
+        }
+
         public void SetVisible(bool visible)
         {
             gameObject.SetActive(visible);
@@ -192,6 +261,10 @@ namespace ProjectTwo.Terrain.Presentation.Components
             {
                 _meshCollider.enabled = false;
                 _meshCollider.sharedMesh = null;
+            }
+            if (_riverMeshFilter != null)
+            {
+                _riverMeshFilter.gameObject.SetActive(false);
             }
             gameObject.SetActive(false);
         }

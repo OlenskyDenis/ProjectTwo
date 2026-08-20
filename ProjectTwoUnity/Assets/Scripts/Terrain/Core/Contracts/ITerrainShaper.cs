@@ -4,7 +4,7 @@ namespace ProjectTwo.Terrain.Core.Contracts
 
     /// <summary>
     /// Thread-safe mathematical service calculating compound procedural elevation and heightmaps.
-    /// Incorporates noise types, macro continental masks, river carving, water basins, and elevation curves.
+    /// Incorporates noise types, macro continental masks, tectonics, river carving, water basins, and elevation curves.
     /// </summary>
     public interface ITerrainShaper
     {
@@ -22,6 +22,23 @@ namespace ProjectTwo.Terrain.Core.Contracts
             FalloffSettings falloff);
 
         /// <summary>
+        /// Calculates the final composite world elevation incorporating global tectonics and river network graph.
+        /// </summary>
+        float CalculateElevation(
+            float worldX,
+            float worldZ,
+            NoiseSettings noise,
+            MacroMaskSettings macro,
+            TectonicSettings tectonics,
+            TectonicBoundary[] tectonicBoundaries,
+            HeightCurveSettings heightCurve,
+            WaterSettings water,
+            RiverSettings river,
+            HydrologySettings hydrology,
+            RiverGraph riverGraph,
+            FalloffSettings falloff);
+
+        /// <summary>
         /// Populates a 2D float array with compound elevations for a chunk bounding box.
         /// </summary>
         void GenerateHeightMap(
@@ -34,6 +51,26 @@ namespace ProjectTwo.Terrain.Core.Contracts
             HeightCurveSettings heightCurve,
             WaterSettings water,
             RiverSettings river,
+            FalloffSettings falloff,
+            float[,] outputBuffer);
+
+        /// <summary>
+        /// Populates a 2D float array with compound elevations incorporating global tectonics and river network graph.
+        /// </summary>
+        void GenerateHeightMap(
+            float startX,
+            float startZ,
+            float size,
+            int resolution,
+            NoiseSettings noise,
+            MacroMaskSettings macro,
+            TectonicSettings tectonics,
+            TectonicBoundary[] tectonicBoundaries,
+            HeightCurveSettings heightCurve,
+            WaterSettings water,
+            RiverSettings river,
+            HydrologySettings hydrology,
+            RiverGraph riverGraph,
             FalloffSettings falloff,
             float[,] outputBuffer);
     }

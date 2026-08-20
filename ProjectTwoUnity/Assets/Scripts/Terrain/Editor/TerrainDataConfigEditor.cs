@@ -19,10 +19,12 @@ namespace ProjectTwo.Terrain.Editor
         private SerializedProperty _chunkResolutionProp;
         private SerializedProperty _noiseSettingsProp;
         private SerializedProperty _macroSettingsProp;
+        private SerializedProperty _tectonicSettingsProp;
         private SerializedProperty _heightCurveSettingsProp;
         private SerializedProperty _falloffSettingsProp;
         private SerializedProperty _waterSettingsProp;
         private SerializedProperty _riverSettingsProp;
+        private SerializedProperty _hydrologySettingsProp;
         private SerializedProperty _lodTiersProp;
         private SerializedProperty _maxViewDistanceProp;
         private SerializedProperty _regionsProp;
@@ -42,6 +44,7 @@ namespace ProjectTwo.Terrain.Editor
         private static bool _proGridFold = false;
         private static bool _proNoiseFold = true;
         private static bool _proMacroFold = false;
+        private static bool _proTectonicsFold = false;
         private static bool _proCurvesFold = false;
         private static bool _proHydrologyFold = false;
         private static bool _proFalloffFold = false;
@@ -54,10 +57,12 @@ namespace ProjectTwo.Terrain.Editor
             _chunkResolutionProp = serializedObject.FindProperty("ChunkResolution");
             _noiseSettingsProp = serializedObject.FindProperty("NoiseSettings");
             _macroSettingsProp = serializedObject.FindProperty("MacroSettings");
+            _tectonicSettingsProp = serializedObject.FindProperty("TectonicSettings");
             _heightCurveSettingsProp = serializedObject.FindProperty("HeightCurveSettings");
             _falloffSettingsProp = serializedObject.FindProperty("FalloffSettings");
             _waterSettingsProp = serializedObject.FindProperty("WaterSettings");
             _riverSettingsProp = serializedObject.FindProperty("RiverSettings");
+            _hydrologySettingsProp = serializedObject.FindProperty("HydrologySettings");
             _lodTiersProp = serializedObject.FindProperty("LodTiers");
             _maxViewDistanceProp = serializedObject.FindProperty("MaxViewDistance");
             _regionsProp = serializedObject.FindProperty("Regions");
@@ -466,7 +471,21 @@ namespace ProjectTwo.Terrain.Editor
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
-            // 4. Non-Linear Curves & Terraces
+            // 4. Tectonic Macro-Zoning & Mountain Belts
+            _proTectonicsFold = EditorGUILayout.BeginFoldoutHeaderGroup(_proTectonicsFold, "🌋 Тектонічні плити та хребти (Tectonics)");
+            if (_proTectonicsFold)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(_tectonicSettingsProp, true);
+                if (GUILayout.Button("🔄 Скинути тектоніку"))
+                {
+                    config.TectonicSettings = TectonicSettings.Default;
+                }
+                EditorGUI.indentLevel--;
+            }
+            EditorGUILayout.EndFoldoutHeaderGroup();
+
+            // 5. Non-Linear Curves & Terraces
             _proCurvesFold = EditorGUILayout.BeginFoldoutHeaderGroup(_proCurvesFold, "📈 Криві висот та тераси (Height Curves)");
             if (_proCurvesFold)
             {
@@ -480,17 +499,20 @@ namespace ProjectTwo.Terrain.Editor
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
-            // 5. Hydrology & Rivers
-            _proHydrologyFold = EditorGUILayout.BeginFoldoutHeaderGroup(_proHydrologyFold, "🌊 Гідрологія: Океан та Річки (Rivers)");
+            // 6. Hydrology: Ocean, River Graph & Lakes
+            _proHydrologyFold = EditorGUILayout.BeginFoldoutHeaderGroup(_proHydrologyFold, "🌊 Гідрологія: Океан, Векторні Річки та Озера");
             if (_proHydrologyFold)
             {
                 EditorGUI.indentLevel++;
                 EditorGUILayout.PropertyField(_waterSettingsProp, true);
                 EditorGUILayout.Space(4);
-                EditorGUILayout.PropertyField(_riverSettingsProp, true);
-                if (GUILayout.Button("🔄 Скинути воду та річки"))
+                EditorGUILayout.PropertyField(_hydrologySettingsProp, new GUIContent("Векторна мережа річок (River Graph)"), true);
+                EditorGUILayout.Space(4);
+                EditorGUILayout.PropertyField(_riverSettingsProp, new GUIContent("Процедурна маска (Legacy River Mask)"), true);
+                if (GUILayout.Button("🔄 Скинути воду та гідрологію"))
                 {
                     config.WaterSettings = WaterSettings.Default;
+                    config.HydrologySettings = HydrologySettings.Default;
                     config.RiverSettings = RiverSettings.Default;
                 }
                 EditorGUI.indentLevel--;
@@ -610,21 +632,46 @@ namespace ProjectTwo.Terrain.Editor
             {
                 Type = NoiseType.RidgedMultifractal,
                 Seed = UnityEngine.Random.Range(1, 99999),
-                Scale = 140f,
+                Scale = 160f,
                 Octaves = 5,
                 Persistence = 0.5f,
                 Lacunarity = 2.1f,
-                HeightMultiplier = 75f,
+                HeightMultiplier = 80f,
                 Offset = Vector2.zero
             };
             config.MacroSettings = new MacroMaskSettings
             {
                 Enabled = true,
                 Seed = 777,
-                Scale = 400f,
-                MountainAmplification = 2.5f,
+                Scale = 600f,
+                MountainAmplification = 2.2f,
                 ValleyDamping = 0.2f,
-                PowerExponent = 1.6f
+                PowerExponent = 1.5f
+            };
+            config.TectonicSettings = new TectonicSettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                PlateCount = 12,
+                PlateScale = 1200f,
+                MountainUplift = 110f,
+                RiftDepth = 35f,
+                BoundaryInfluenceWidth = 320f,
+                RidgeSharpness = 1.7f,
+                FaultNoiseWarp = 0.35f
+            };
+            config.HydrologySettings = new HydrologySettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                SourceCount = 24,
+                MinSourceElevationRatio = 0.5f,
+                BaseRiverWidth = 10f,
+                WidthGrowthFactor = 1.7f,
+                BaseCarveDepth = 16f,
+                BankSmoothness = 0.45f,
+                MeanderIntensity = 0.35f,
+                LakeMinDepthThreshold = 8f
             };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
@@ -653,6 +700,31 @@ namespace ProjectTwo.Terrain.Editor
                 Offset = Vector2.zero
             };
             config.MacroSettings = MacroMaskSettings.Default;
+            config.TectonicSettings = new TectonicSettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                PlateCount = 16,
+                PlateScale = 800f,
+                MountainUplift = 50f,
+                RiftDepth = 40f,
+                BoundaryInfluenceWidth = 200f,
+                RidgeSharpness = 1.4f,
+                FaultNoiseWarp = 0.2f
+            };
+            config.HydrologySettings = new HydrologySettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                SourceCount = 10,
+                MinSourceElevationRatio = 0.6f,
+                BaseRiverWidth = 8f,
+                WidthGrowthFactor = 1.4f,
+                BaseCarveDepth = 10f,
+                BankSmoothness = 0.4f,
+                MeanderIntensity = 0.25f,
+                LakeMinDepthThreshold = 6f
+            };
             config.FalloffSettings = new FalloffSettings
             {
                 Mode = FalloffMode.Circular,
@@ -692,6 +764,31 @@ namespace ProjectTwo.Terrain.Editor
                 Offset = Vector2.zero
             };
             config.MacroSettings = MacroMaskSettings.Default;
+            config.TectonicSettings = new TectonicSettings
+            {
+                Enabled = false,
+                Seed = 42,
+                PlateCount = 8,
+                PlateScale = 1500f,
+                MountainUplift = 20f,
+                RiftDepth = 10f,
+                BoundaryInfluenceWidth = 200f,
+                RidgeSharpness = 1.0f,
+                FaultNoiseWarp = 0.1f
+            };
+            config.HydrologySettings = new HydrologySettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                SourceCount = 12,
+                MinSourceElevationRatio = 0.4f,
+                BaseRiverWidth = 14f,
+                WidthGrowthFactor = 1.6f,
+                BaseCarveDepth = 8f,
+                BankSmoothness = 0.6f,
+                MeanderIntensity = 0.5f,
+                LakeMinDepthThreshold = 5f
+            };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
             config.RiverSettings = RiverSettings.Default;
@@ -719,11 +816,36 @@ namespace ProjectTwo.Terrain.Editor
                 Offset = Vector2.zero
             };
             config.MacroSettings = MacroMaskSettings.Default;
+            config.TectonicSettings = new TectonicSettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                PlateCount = 10,
+                PlateScale = 1000f,
+                MountainUplift = 40f,
+                RiftDepth = 50f,
+                BoundaryInfluenceWidth = 250f,
+                RidgeSharpness = 2.2f,
+                FaultNoiseWarp = 0.4f
+            };
+            config.HydrologySettings = new HydrologySettings
+            {
+                Enabled = true,
+                Seed = UnityEngine.Random.Range(1, 99999),
+                SourceCount = 16,
+                MinSourceElevationRatio = 0.5f,
+                BaseRiverWidth = 18f,
+                WidthGrowthFactor = 1.8f,
+                BaseCarveDepth = 26f,
+                BankSmoothness = 0.35f,
+                MeanderIntensity = 0.6f,
+                LakeMinDepthThreshold = 10f
+            };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
             config.RiverSettings = new RiverSettings
             {
-                Enabled = true,
+                Enabled = false,
                 Seed = 1234,
                 Frequency = 0.007f,
                 CarveDepth = 20f,

@@ -23,6 +23,9 @@ namespace ProjectTwo.Terrain.Core.Models
         public NoiseSettings NoiseSettings = NoiseSettings.Default;
         public MacroMaskSettings MacroSettings = MacroMaskSettings.Default;
 
+        [Header("Tectonic Plates & Ridges")]
+        public TectonicSettings TectonicSettings = TectonicSettings.Default;
+
         [Header("Elevation Shaping")]
         public HeightCurveSettings HeightCurveSettings = HeightCurveSettings.Default;
         public FalloffSettings FalloffSettings = FalloffSettings.Default;
@@ -30,6 +33,7 @@ namespace ProjectTwo.Terrain.Core.Models
         [Header("Hydrology & Water")]
         public WaterSettings WaterSettings = WaterSettings.Default;
         public RiverSettings RiverSettings = RiverSettings.Default;
+        public HydrologySettings HydrologySettings = HydrologySettings.Default;
 
         [Header("Biomes & Regions")]
         public TerrainRegion[] Regions;

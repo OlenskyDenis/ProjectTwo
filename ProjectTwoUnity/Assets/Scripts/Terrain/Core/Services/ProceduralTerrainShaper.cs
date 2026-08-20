@@ -25,6 +25,35 @@ namespace ProjectTwo.Terrain.Core.Services
             RiverSettings river,
             FalloffSettings falloff)
         {
+            return CalculateElevation(
+                worldX,
+                worldZ,
+                noise,
+                macro,
+                default,
+                null,
+                heightCurve,
+                water,
+                river,
+                default,
+                null,
+                falloff);
+        }
+
+        public float CalculateElevation(
+            float worldX,
+            float worldZ,
+            NoiseSettings noise,
+            MacroMaskSettings macro,
+            TectonicSettings tectonics,
+            TectonicBoundary[] tectonicBoundaries,
+            HeightCurveSettings heightCurve,
+            WaterSettings water,
+            RiverSettings river,
+            HydrologySettings hydrology,
+            RiverGraph riverGraph,
+            FalloffSettings falloff)
+        {
             noise.Validate();
             macro.Validate();
             water.Validate();
@@ -72,21 +101,31 @@ namespace ProjectTwo.Terrain.Core.Services
             // Convert to World Height Units
             float worldHeight = elevation * noise.HeightMultiplier;
 
-            // 4. Apply Procedural River Carving
-            if (river.Enabled && river.CarveDepth > 0.001f)
+            // 4. Apply Tectonic Ridge Uplift & Rift Depressions
+            if (tectonics.Enabled)
+            {
+                worldHeight += SampleTectonicUpliftInline(worldX, worldZ, tectonics, tectonicBoundaries);
+            }
+
+            // 5. Apply Procedural River Carving (Simple or Vector Graph)
+            if (hydrology.Enabled && riverGraph != null && riverGraph.SegmentCount > 0)
+            {
+                worldHeight -= SampleVectorRiverCarve(worldX, worldZ, riverGraph, hydrology);
+            }
+            else if (river.Enabled && river.CarveDepth > 0.001f)
             {
                 float riverSample = SampleRiverMask(worldX, worldZ, river);
                 worldHeight -= riverSample * river.CarveDepth;
             }
 
-            // 5. Apply Boundary / Island Falloff
+            // 6. Apply Boundary / Island Falloff
             if (falloff.Mode != FalloffMode.None)
             {
                 float falloffFactor = CalculateFalloffFactor(worldX, worldZ, falloff);
                 worldHeight *= falloffFactor;
             }
 
-            // 6. Apply Global Sea Level & Ocean Floor Basin
+            // 7. Apply Global Sea Level & Ocean Floor Basin
             if (water.Enabled)
             {
                 if (worldHeight < water.SeaLevel)
@@ -100,6 +139,60 @@ namespace ProjectTwo.Terrain.Core.Services
             return worldHeight;
         }
 
+        private static float SampleTectonicUpliftInline(
+            float worldX,
+            float worldZ,
+            TectonicSettings settings,
+            TectonicBoundary[] boundaries)
+        {
+            return TectonicService.SampleTectonicUpliftProcedural(worldX, worldZ, settings);
+        }
+
+        private static float SampleVectorRiverCarve(
+            float worldX,
+            float worldZ,
+            RiverGraph graph,
+            HydrologySettings settings)
+        {
+            if (graph == null || graph.SegmentCount == 0) return 0f;
+
+            Vector2 p = new Vector2(worldX, worldZ);
+            float maxCarve = 0f;
+
+            // Sample within local neighborhood
+            for (int i = 0; i < graph.Segments.Length; i++)
+            {
+                ref readonly RiverSegment seg = ref graph.Segments[i];
+                Vector2 a = new Vector2(seg.StartPosition.x, seg.StartPosition.z);
+                Vector2 b = new Vector2(seg.EndPosition.x, seg.EndPosition.z);
+
+                float dist = DistanceToSegment2D(p, a, b);
+                float halfWidth = seg.ChannelWidth * 0.5f;
+                float influence = halfWidth + seg.ChannelWidth * settings.BankSmoothness * 2f;
+
+                if (dist < influence)
+                {
+                    float factor = Mathf.Clamp01(1f - (dist / influence));
+                    factor = Mathf.SmoothStep(0f, 1f, factor);
+                    float carve = factor * seg.CarveDepth;
+                    if (carve > maxCarve) maxCarve = carve;
+                }
+            }
+
+            return maxCarve;
+        }
+
+        private static float DistanceToSegment2D(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float l2 = ab.sqrMagnitude;
+            if (l2 < 0.0001f) return (p - a).magnitude;
+
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / l2);
+            Vector2 projection = a + t * ab;
+            return (p - projection).magnitude;
+        }
+
         public void GenerateHeightMap(
             float startX,
             float startZ,
@@ -110,6 +203,41 @@ namespace ProjectTwo.Terrain.Core.Services
             HeightCurveSettings heightCurve,
             WaterSettings water,
             RiverSettings river,
+            FalloffSettings falloff,
+            float[,] outputBuffer)
+        {
+            GenerateHeightMap(
+                startX,
+                startZ,
+                size,
+                resolution,
+                noise,
+                macro,
+                default,
+                null,
+                heightCurve,
+                water,
+                river,
+                default,
+                null,
+                falloff,
+                outputBuffer);
+        }
+
+        public void GenerateHeightMap(
+            float startX,
+            float startZ,
+            float size,
+            int resolution,
+            NoiseSettings noise,
+            MacroMaskSettings macro,
+            TectonicSettings tectonics,
+            TectonicBoundary[] tectonicBoundaries,
+            HeightCurveSettings heightCurve,
+            WaterSettings water,
+            RiverSettings river,
+            HydrologySettings hydrology,
+            RiverGraph riverGraph,
             FalloffSettings falloff,
             float[,] outputBuffer)
         {
@@ -130,9 +258,13 @@ namespace ProjectTwo.Terrain.Core.Services
                         currentZ,
                         noise,
                         macro,
+                        tectonics,
+                        tectonicBoundaries,
                         heightCurve,
                         water,
                         river,
+                        hydrology,
+                        riverGraph,
                         falloff);
 
                     // Store normalized height in [0, 1] range in the HeightMap buffer

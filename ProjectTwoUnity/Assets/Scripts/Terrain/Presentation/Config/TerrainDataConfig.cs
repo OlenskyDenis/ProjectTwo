@@ -25,6 +25,9 @@ namespace ProjectTwo.Terrain.Presentation.Config
         [Header("Macro Mountain & Continent Masking")]
         public MacroMaskSettings MacroSettings = MacroMaskSettings.Default;
 
+        [Header("Tectonic Macro-Zoning & Ridges")]
+        public TectonicSettings TectonicSettings = TectonicSettings.Default;
+
         [Header("Non-Linear Elevation Curves")]
         public HeightCurveSettings HeightCurveSettings = HeightCurveSettings.Default;
 
@@ -36,6 +39,9 @@ namespace ProjectTwo.Terrain.Presentation.Config
 
         [Header("Procedural Rivers")]
         public RiverSettings RiverSettings = RiverSettings.Default;
+
+        [Header("Hydrological River Network & Lakes")]
+        public HydrologySettings HydrologySettings = HydrologySettings.Default;
 
         [Header("Biome / Elevation Regions")]
         [Tooltip("List of elevation regions sorted by height threshold.")]
@@ -97,8 +103,10 @@ namespace ProjectTwo.Terrain.Presentation.Config
             if (MaxViewDistance < 50f) MaxViewDistance = 50f;
             NoiseSettings.Validate();
             MacroSettings.Validate();
+            TectonicSettings.Validate();
             WaterSettings.Validate();
             RiverSettings.Validate();
+            HydrologySettings.Validate();
             FalloffSettings.Validate();
             if (HeightCurveSettings != null) HeightCurveSettings.Validate();
 
@@ -132,10 +140,12 @@ namespace ProjectTwo.Terrain.Presentation.Config
                 Offset = Vector2.zero
             };
             MacroSettings = MacroMaskSettings.Default;
+            TectonicSettings = TectonicSettings.Default;
             HeightCurveSettings = HeightCurveSettings.Default;
             FalloffSettings = FalloffSettings.Default;
             WaterSettings = WaterSettings.Default;
             RiverSettings = RiverSettings.Default;
+            HydrologySettings = HydrologySettings.Default;
             Regions = TerrainRegion.CreateDefaultRegions();
             MaxViewDistance = 600f;
             LodTiers = LODInfo.CreateDefaultTiers(600f);
