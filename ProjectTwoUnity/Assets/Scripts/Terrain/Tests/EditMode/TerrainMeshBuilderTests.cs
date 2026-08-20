@@ -155,5 +155,41 @@ namespace ProjectTwo.Terrain.Tests.EditMode
                 Assert.AreEqual(vertCenter.z, vertNorth.z, 1e-4f, $"Z-alignment mismatch at column {x}");
             }
         }
+
+        [Test]
+        public void GenerateTerrainMesh_CollisionMesh_HasNoEdgesLongerThan500Units_EvenWithExtremeMountains()
+        {
+            int size = 25; // 24 segments
+            float[,] values = new float[size, size];
+            for (int x = 0; x < size; x++)
+            {
+                for (int z = 0; z < size; z++)
+                {
+                    values[x, z] = (x + z) % 2 == 0 ? 0f : 1.0f; // Extreme alternating peaks
+                }
+            }
+
+            HeightMap heightMap = new HeightMap(values);
+            float extremeHeight = 800f; // 800m tall mountain
+            float chunkSize = 240f;
+
+            TerrainMeshData collisionMesh = TerrainMeshBuilder.GenerateTerrainMesh(
+                heightMap, chunkSize, extremeHeight, lodStep: 1, regions: null, includeSkirt: false);
+
+            for (int i = 0; i < collisionMesh.Triangles.Length; i += 3)
+            {
+                Vector3 vA = collisionMesh.Vertices[collisionMesh.Triangles[i]];
+                Vector3 vB = collisionMesh.Vertices[collisionMesh.Triangles[i + 1]];
+                Vector3 vC = collisionMesh.Vertices[collisionMesh.Triangles[i + 2]];
+
+                float distAB = Vector3.Distance(vA, vB);
+                float distBC = Vector3.Distance(vB, vC);
+                float distCA = Vector3.Distance(vC, vA);
+
+                Assert.Less(distAB, 500f, $"Edge AB too long: {distAB}");
+                Assert.Less(distBC, 500f, $"Edge BC too long: {distBC}");
+                Assert.Less(distCA, 500f, $"Edge CA too long: {distCA}");
+            }
+        }
     }
 }

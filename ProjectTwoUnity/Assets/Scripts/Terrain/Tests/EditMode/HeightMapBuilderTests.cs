@@ -2,6 +2,7 @@ namespace ProjectTwo.Terrain.Tests.EditMode
 {
     using System;
     using NUnit.Framework;
+    using ProjectTwo.Terrain.Core.Contracts;
     using ProjectTwo.Terrain.Core.Models;
     using ProjectTwo.Terrain.Core.Services;
 
@@ -19,7 +20,8 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         [Test]
         public void Constructor_ThrowsOnNullGenerator()
         {
-            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder(null));
+            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder((INoiseGenerator)null));
+            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder((ITerrainShaper)null));
         }
 
         [Test]

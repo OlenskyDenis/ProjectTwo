@@ -22,6 +22,25 @@ namespace ProjectTwo.Terrain.Presentation.Config
         [Header("Noise Configuration")]
         public NoiseSettings NoiseSettings = NoiseSettings.Default;
 
+        [Header("Macro Mountain & Continent Masking")]
+        public MacroMaskSettings MacroSettings = MacroMaskSettings.Default;
+
+        [Header("Non-Linear Elevation Curves")]
+        public HeightCurveSettings HeightCurveSettings = HeightCurveSettings.Default;
+
+        [Header("Boundary & Island Falloff")]
+        public FalloffSettings FalloffSettings = FalloffSettings.Default;
+
+        [Header("Water & Sea Basins")]
+        public WaterSettings WaterSettings = WaterSettings.Default;
+
+        [Header("Procedural Rivers")]
+        public RiverSettings RiverSettings = RiverSettings.Default;
+
+        [Header("Biome / Elevation Regions")]
+        [Tooltip("List of elevation regions sorted by height threshold.")]
+        public TerrainRegion[] Regions;
+
         [Header("LOD Settings")]
         [Tooltip("List of LOD levels with distance thresholds and resolution steps.")]
         public LODInfo[] LodTiers;
@@ -30,10 +49,6 @@ namespace ProjectTwo.Terrain.Presentation.Config
         [Tooltip("Maximum view distance radius in world units.")]
         [Range(100f, 2000f)]
         public float MaxViewDistance = 600f;
-
-        [Header("Biome / Elevation Regions")]
-        [Tooltip("List of elevation regions sorted by height threshold.")]
-        public TerrainRegion[] Regions;
 
         [Header("Visuals & Materials")]
         [Tooltip("Material assigned to generated terrain chunks.")]
@@ -53,6 +68,11 @@ namespace ProjectTwo.Terrain.Presentation.Config
             if (Regions == null || Regions.Length == 0)
             {
                 Regions = TerrainRegion.CreateDefaultRegions();
+            }
+
+            if (HeightCurveSettings == null)
+            {
+                HeightCurveSettings = HeightCurveSettings.Default;
             }
 
             Validate();
@@ -76,6 +96,11 @@ namespace ProjectTwo.Terrain.Presentation.Config
 
             if (MaxViewDistance < 50f) MaxViewDistance = 50f;
             NoiseSettings.Validate();
+            MacroSettings.Validate();
+            WaterSettings.Validate();
+            RiverSettings.Validate();
+            FalloffSettings.Validate();
+            if (HeightCurveSettings != null) HeightCurveSettings.Validate();
 
             if (LodTiers == null || LodTiers.Length == 0)
             {
@@ -86,6 +111,36 @@ namespace ProjectTwo.Terrain.Presentation.Config
             {
                 Regions = TerrainRegion.CreateDefaultRegions();
             }
+        }
+
+        /// <summary>
+        /// Resets all terrain parameters to clean, balanced, production-ready defaults.
+        /// </summary>
+        public void ResetToDefaults()
+        {
+            ChunkSize = 240;
+            ChunkResolution = 120;
+            NoiseSettings = new NoiseSettings
+            {
+                Type = NoiseType.PerlinFbm,
+                Seed = 1337,
+                Scale = 140f,
+                Octaves = 4,
+                Persistence = 0.45f,
+                Lacunarity = 2.0f,
+                HeightMultiplier = 45f,
+                Offset = Vector2.zero
+            };
+            MacroSettings = MacroMaskSettings.Default;
+            HeightCurveSettings = HeightCurveSettings.Default;
+            FalloffSettings = FalloffSettings.Default;
+            WaterSettings = WaterSettings.Default;
+            RiverSettings = RiverSettings.Default;
+            Regions = TerrainRegion.CreateDefaultRegions();
+            MaxViewDistance = 600f;
+            LodTiers = LODInfo.CreateDefaultTiers(600f);
+            EnablePersistence = true;
+            Validate();
         }
     }
 }

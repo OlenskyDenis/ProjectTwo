@@ -4,11 +4,24 @@ namespace ProjectTwo.Terrain.Core.Models
     using UnityEngine;
 
     /// <summary>
+    /// Synthesis mode for procedural terrain noise generation.
+    /// </summary>
+    public enum NoiseType
+    {
+        PerlinFbm = 0,
+        RidgedMultifractal = 1,
+        Billow = 2
+    }
+
+    /// <summary>
     /// Configuration parameters for procedural noise sampling.
     /// </summary>
     [Serializable]
     public struct NoiseSettings : IEquatable<NoiseSettings>
     {
+        [Tooltip("Procedural noise algorithm type.")]
+        public NoiseType Type;
+
         [Tooltip("Seed for deterministic procedural noise generation.")]
         public int Seed;
 
@@ -36,6 +49,7 @@ namespace ProjectTwo.Terrain.Core.Models
 
         public static NoiseSettings Default => new NoiseSettings
         {
+            Type = NoiseType.PerlinFbm,
             Seed = 1337,
             Scale = 50f,
             Octaves = 4,
@@ -58,7 +72,8 @@ namespace ProjectTwo.Terrain.Core.Models
 
         public bool Equals(NoiseSettings other)
         {
-            return Seed == other.Seed &&
+            return Type == other.Type &&
+                   Seed == other.Seed &&
                    Mathf.Approximately(Scale, other.Scale) &&
                    Octaves == other.Octaves &&
                    Mathf.Approximately(Persistence, other.Persistence) &&
@@ -74,6 +89,7 @@ namespace ProjectTwo.Terrain.Core.Models
             unchecked
             {
                 int hash = 17;
+                hash = hash * 31 + (int)Type;
                 hash = hash * 31 + Seed;
                 hash = hash * 31 + Scale.GetHashCode();
                 hash = hash * 31 + Octaves;

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea79deea5f1eaeb4d9eccfd39c1a5ebb, type: 3}
   m_Name: TerrainConfig
   m_EditorClassIdentifier: ProjectTwo.Terrain.Runtime::ProjectTwo.Terrain.Presentation.Config.TerrainDataConfig
-  ChunkSize: 96
-  ChunkResolution: 60
+  ChunkSize: 36
+  ChunkResolution: 240
   NoiseSettings:
     Seed: 1337
     Scale: 50

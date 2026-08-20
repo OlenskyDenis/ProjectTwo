@@ -6,7 +6,7 @@ namespace ProjectTwo.Terrain.Core.Services
 
     /// <summary>
     /// Pure C# domain service for constructing 3D terrain mesh data from heightmaps.
-    /// Handles multi-LOD vertex skipping, seamless gradient normals, and vertical terrain skirts to eliminate LOD cracks.
+    /// Supports optional skirt generation (true for seamless visuals, false for physics colliders).
     /// </summary>
     public static class TerrainMeshBuilder
     {
@@ -15,7 +15,8 @@ namespace ProjectTwo.Terrain.Core.Services
             float chunkSize,
             float heightMultiplier,
             int lodStep = 1,
-            TerrainRegion[] regions = null)
+            TerrainRegion[] regions = null,
+            bool includeSkirt = true)
         {
             if (lodStep < 1) lodStep = 1;
 
@@ -31,10 +32,15 @@ namespace ProjectTwo.Terrain.Core.Services
             int gridVertexCount = verticesPerLineX * verticesPerLineZ;
             int gridTriangleCount = (verticesPerLineX - 1) * (verticesPerLineZ - 1) * 6;
 
-            // Perimeter segment count for skirt
-            int perimeterSegments = ((verticesPerLineX - 1) + (verticesPerLineZ - 1)) * 2;
-            int skirtVertexCount = perimeterSegments * 2;
-            int skirtTriangleIndexCount = perimeterSegments * 6;
+            int skirtVertexCount = 0;
+            int skirtTriangleIndexCount = 0;
+
+            if (includeSkirt)
+            {
+                int perimeterSegments = ((verticesPerLineX - 1) + (verticesPerLineZ - 1)) * 2;
+                skirtVertexCount = perimeterSegments * 2;
+                skirtTriangleIndexCount = perimeterSegments * 6;
+            }
 
             int totalVertices = gridVertexCount + skirtVertexCount;
             int totalTriangles = gridTriangleCount + skirtTriangleIndexCount;
@@ -46,8 +52,7 @@ namespace ProjectTwo.Terrain.Core.Services
             float stepDistX = (float)lodStep / numSegmentsX * chunkSize;
             float stepDistZ = (float)lodStep / numSegmentsZ * chunkSize;
 
-            // Skirt extends downwards below the lowest possible terrain point
-            float skirtDepth = Mathf.Max(15f, heightMultiplier * 0.6f);
+            float skirtDepth = Mathf.Clamp(heightMultiplier * 0.08f, 5f, 20f);
 
             // 1. Generate Surface Grid Vertices, UVs, Colors, and Gradient Normals
             for (int zIndex = 0; zIndex < verticesPerLineZ; zIndex++)
@@ -71,11 +76,9 @@ namespace ProjectTwo.Terrain.Core.Services
                     meshData.UVs[vertexIndex] = new Vector2(percentX, percentZ);
                     colors[vertexIndex] = EvaluateRegionColor(normalizedHeight, regions);
 
-                    // Compute smooth seamless surface normal via height gradient
                     meshData.Normals[vertexIndex] = CalculateSmoothNormal(
                         heightMap, sampleX, sampleZ, numSegmentsX, numSegmentsZ, lodStep, stepDistX, stepDistZ, heightMultiplier);
 
-                    // Add surface grid triangles (clockwise winding for upward normal)
                     if (xIndex < verticesPerLineX - 1 && zIndex < verticesPerLineZ - 1)
                     {
                         int current = vertexIndex;
@@ -89,68 +92,63 @@ namespace ProjectTwo.Terrain.Core.Services
                 }
             }
 
-            // 2. Generate Vertical Skirt around the 4 outer edges to seal LOD cracks
-            int skirtVertIndex = gridVertexCount;
-
-            // Helper to append a skirt wall along a boundary segment (vA -> vB)
-            void AddSkirtWall(int vA, int vB)
+            // 2. Generate Vertical Skirt (visuals only)
+            if (includeSkirt)
             {
-                Vector3 posA = meshData.Vertices[vA];
-                Vector3 posB = meshData.Vertices[vB];
+                int skirtVertIndex = gridVertexCount;
 
-                Vector3 skirtA = new Vector3(posA.x, posA.y - skirtDepth, posA.z);
-                Vector3 skirtB = new Vector3(posB.x, posB.y - skirtDepth, posB.z);
+                void AddSkirtWall(int vA, int vB)
+                {
+                    Vector3 posA = meshData.Vertices[vA];
+                    Vector3 posB = meshData.Vertices[vB];
 
-                int idxSA = skirtVertIndex++;
-                int idxSB = skirtVertIndex++;
+                    Vector3 skirtA = new Vector3(posA.x, posA.y - skirtDepth, posA.z);
+                    Vector3 skirtB = new Vector3(posB.x, posB.y - skirtDepth, posB.z);
 
-                meshData.Vertices[idxSA] = skirtA;
-                meshData.Vertices[idxSB] = skirtB;
+                    int idxSA = skirtVertIndex++;
+                    int idxSB = skirtVertIndex++;
 
-                meshData.UVs[idxSA] = meshData.UVs[vA];
-                meshData.UVs[idxSB] = meshData.UVs[vB];
+                    meshData.Vertices[idxSA] = skirtA;
+                    meshData.Vertices[idxSB] = skirtB;
 
-                colors[idxSA] = colors[vA];
-                colors[idxSB] = colors[vB];
+                    meshData.UVs[idxSA] = meshData.UVs[vA];
+                    meshData.UVs[idxSB] = meshData.UVs[vB];
 
-                meshData.Normals[idxSA] = meshData.Normals[vA];
-                meshData.Normals[idxSB] = meshData.Normals[vB];
+                    colors[idxSA] = colors[vA];
+                    colors[idxSB] = colors[vB];
 
-                // Skirt quad: (vA, skirtA, skirtB) and (vA, skirtB, vB) facing outward
-                meshData.AddTriangle(vA, idxSA, idxSB);
-                meshData.AddTriangle(vA, idxSB, vB);
-            }
+                    meshData.Normals[idxSA] = meshData.Normals[vA];
+                    meshData.Normals[idxSB] = meshData.Normals[vB];
 
-            // South edge (Z = 0, moving +X): (x, 0) -> (x+1, 0)
-            for (int x = 0; x < verticesPerLineX - 1; x++)
-            {
-                int vA = x;
-                int vB = x + 1;
-                AddSkirtWall(vB, vA);
-            }
+                    meshData.AddTriangle(vA, idxSA, idxSB);
+                    meshData.AddTriangle(vA, idxSB, vB);
+                }
 
-            // East edge (X = Max, moving +Z): (X_max, z) -> (X_max, z+1)
-            for (int z = 0; z < verticesPerLineZ - 1; z++)
-            {
-                int vA = z * verticesPerLineX + (verticesPerLineX - 1);
-                int vB = (z + 1) * verticesPerLineX + (verticesPerLineX - 1);
-                AddSkirtWall(vB, vA);
-            }
+                for (int x = 0; x < verticesPerLineX - 1; x++)
+                {
+                    AddSkirtWall(x + 1, x);
+                }
 
-            // North edge (Z = Max, moving -X): (x+1, Z_max) -> (x, Z_max)
-            for (int x = verticesPerLineX - 1; x > 0; x--)
-            {
-                int vA = (verticesPerLineZ - 1) * verticesPerLineX + x;
-                int vB = (verticesPerLineZ - 1) * verticesPerLineX + (x - 1);
-                AddSkirtWall(vB, vA);
-            }
+                for (int z = 0; z < verticesPerLineZ - 1; z++)
+                {
+                    int vA = z * verticesPerLineX + (verticesPerLineX - 1);
+                    int vB = (z + 1) * verticesPerLineX + (verticesPerLineX - 1);
+                    AddSkirtWall(vB, vA);
+                }
 
-            // West edge (X = 0, moving -Z): (0, z+1) -> (0, z)
-            for (int z = verticesPerLineZ - 1; z > 0; z--)
-            {
-                int vA = z * verticesPerLineX;
-                int vB = (z - 1) * verticesPerLineX;
-                AddSkirtWall(vB, vA);
+                for (int x = verticesPerLineX - 1; x > 0; x--)
+                {
+                    int vA = (verticesPerLineZ - 1) * verticesPerLineX + x;
+                    int vB = (verticesPerLineZ - 1) * verticesPerLineX + (x - 1);
+                    AddSkirtWall(vB, vA);
+                }
+
+                for (int z = verticesPerLineZ - 1; z > 0; z--)
+                {
+                    int vA = z * verticesPerLineX;
+                    int vB = (z - 1) * verticesPerLineX;
+                    AddSkirtWall(vB, vA);
+                }
             }
 
             meshData.Colors = colors;
@@ -159,34 +157,37 @@ namespace ProjectTwo.Terrain.Core.Services
 
         private static Vector3 CalculateSmoothNormal(
             HeightMap heightMap,
-            int sampleX,
-            int sampleZ,
-            int maxSegX,
-            int maxSegZ,
+            int x,
+            int z,
+            int numSegmentsX,
+            int numSegmentsZ,
             int lodStep,
             float stepDistX,
             float stepDistZ,
             float heightMultiplier)
         {
-            float hL = heightMap.GetNormalizedValue(sampleX - lodStep, sampleZ) * heightMultiplier;
-            float hR = heightMap.GetNormalizedValue(sampleX + lodStep, sampleZ) * heightMultiplier;
-            float hD = heightMap.GetNormalizedValue(sampleX, sampleZ - lodStep) * heightMultiplier;
-            float hU = heightMap.GetNormalizedValue(sampleX, sampleZ + lodStep) * heightMultiplier;
+            int leftX = Mathf.Max(0, x - lodStep);
+            int rightX = Mathf.Min(numSegmentsX, x + lodStep);
+            int downZ = Mathf.Max(0, z - lodStep);
+            int upZ = Mathf.Min(numSegmentsZ, z + lodStep);
 
-            float spanX = (sampleX == 0 || sampleX == maxSegX) ? stepDistX : (2f * stepDistX);
-            float spanZ = (sampleZ == 0 || sampleZ == maxSegZ) ? stepDistZ : (2f * stepDistZ);
+            float hL = heightMap.Values[leftX, z] * heightMultiplier;
+            float hR = heightMap.Values[rightX, z] * heightMultiplier;
+            float hD = heightMap.Values[x, downZ] * heightMultiplier;
+            float hU = heightMap.Values[x, upZ] * heightMultiplier;
 
-            float dX = (hL - hR) / spanX;
-            float dZ = (hD - hU) / spanZ;
+            float spanX = (rightX - leftX) > 0 ? (float)(rightX - leftX) / lodStep * stepDistX : 1f;
+            float spanZ = (upZ - downZ) > 0 ? (float)(upZ - downZ) / lodStep * stepDistZ : 1f;
 
-            return new Vector3(dX, 2f, dZ).normalized;
+            Vector3 normal = new Vector3(hL - hR, spanX + spanZ, hD - hU);
+            return normal.normalized;
         }
 
         private static Color EvaluateRegionColor(float normalizedHeight, TerrainRegion[] regions)
         {
             if (regions == null || regions.Length == 0)
             {
-                return Color.Lerp(new Color(0.2f, 0.6f, 0.2f), new Color(0.8f, 0.8f, 0.8f), normalizedHeight);
+                return Color.white;
             }
 
             for (int i = 0; i < regions.Length; i++)

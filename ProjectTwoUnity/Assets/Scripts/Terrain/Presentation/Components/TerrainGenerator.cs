@@ -3,6 +3,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using UnityEngine;
     using ProjectTwo.Terrain.Core.Contracts;
@@ -12,7 +13,8 @@ namespace ProjectTwo.Terrain.Presentation.Components
     using ProjectTwo.Terrain.Presentation.Pooling;
 
     /// <summary>
-    /// Main controller managing infinite chunk streaming, background calculation tasks, LOD updates, and spatial queries.
+    /// Main controller managing infinite chunk streaming, background calculation tasks,
+    /// cooperative CancellationToken cancellation, LOD updates, and spatial queries.
     /// </summary>
     [ExecuteAlways]
     public class TerrainGenerator : MonoBehaviour, ITerrainProvider
@@ -29,6 +31,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
         [Tooltip("Auto-update terrain preview when values change in the Inspector.")]
         public bool AutoUpdate = true;
 
+        [Tooltip("Use fast low-resolution draft mesh during active slider manipulation.")]
+        public bool UseDraftPreviewOnDrag = true;
+
         // Events
         public event Action<ChunkEventArgs> OnChunkLoaded;
         public event Action<ChunkEventArgs> OnChunkUnloaded;
@@ -36,6 +41,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
         // Core Domain Services
         private INoiseGenerator _noiseGenerator;
+        private ITerrainShaper _terrainShaper;
         private HeightMapBuilder _heightMapBuilder;
         private IChunkStorage _chunkStorage;
 
@@ -45,6 +51,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private readonly HashSet<ChunkCoordinate> _inFlightCoordinates = new HashSet<ChunkCoordinate>();
         private readonly ConcurrentQueue<ChunkGenerationResult> _completedQueue = new ConcurrentQueue<ChunkGenerationResult>();
 
+        // Cooperative Task Cancellation
+        private CancellationTokenSource _generationCts;
+
         private Vector2 _lastViewerPosition;
         private const float ViewerMoveThreshold = 25f;
 
@@ -52,11 +61,17 @@ namespace ProjectTwo.Terrain.Presentation.Components
         {
             public ChunkCoordinate Coordinate;
             public HeightMap HeightMap;
+            public int Resolution;
         }
 
         private void Awake()
         {
             InitializeServices();
+        }
+
+        private void OnDestroy()
+        {
+            CancelInFlightTasks();
         }
 
         private void Start()
@@ -74,13 +89,11 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
                 if (Viewer != null)
                 {
-                    // Automatically add smooth free fly controls if none exist
                     if (Viewer.GetComponent<FreeFlyCameraController>() == null)
                     {
                         Viewer.gameObject.AddComponent<FreeFlyCameraController>();
                     }
 
-                    // Auto-elevate camera so it's not submerged in the ground
                     float terrainHeightAtViewer = GetHeight(Viewer.position.x, Viewer.position.z);
                     if (Viewer.position.y <= terrainHeightAtViewer + 10f)
                     {
@@ -125,13 +138,27 @@ namespace ProjectTwo.Terrain.Presentation.Components
             Configuration.Validate();
 
             _noiseGenerator = new PerlinNoiseGenerator();
-            _heightMapBuilder = new HeightMapBuilder(_noiseGenerator);
+            _terrainShaper = new ProceduralTerrainShaper();
+            _heightMapBuilder = new HeightMapBuilder(_terrainShaper);
             _chunkStorage = new MemoryChunkStorage();
 
             if (_chunkPool == null)
             {
                 _chunkPool = new ChunkObjectPool(transform, Configuration.TerrainMaterial, 36);
             }
+        }
+
+        public void CancelInFlightTasks()
+        {
+            if (_generationCts != null)
+            {
+                _generationCts.Cancel();
+                _generationCts.Dispose();
+                _generationCts = null;
+            }
+
+            _inFlightCoordinates.Clear();
+            while (_completedQueue.TryDequeue(out _)) { }
         }
 
         public void UpdateVisibleChunks()
@@ -197,26 +224,57 @@ namespace ProjectTwo.Terrain.Presentation.Components
         {
             _inFlightCoordinates.Add(coord);
 
-            // Check cache first
             if (Configuration.EnablePersistence && _chunkStorage.TryGetChunk(coord, out HeightMap cachedMap))
             {
-                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = cachedMap });
+                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = cachedMap, Resolution = Configuration.ChunkResolution });
                 return;
             }
 
-            int resolution = Configuration.ChunkResolution + 1;
+            if (_generationCts == null || _generationCts.IsCancellationRequested)
+            {
+                _generationCts = new CancellationTokenSource();
+            }
+
+            CancellationToken token = _generationCts.Token;
+
+            int resolution = Configuration.ChunkResolution;
+            int size = Configuration.ChunkSize;
+            Vector3 worldOrigin = coord.ToWorldPosition(size);
+            float startX = worldOrigin.x - size * 0.5f;
+            float startZ = worldOrigin.z - size * 0.5f;
+
             NoiseSettings noise = Configuration.NoiseSettings;
+            MacroMaskSettings macro = Configuration.MacroSettings;
+            HeightCurveSettings curve = Configuration.HeightCurveSettings;
+            WaterSettings water = Configuration.WaterSettings;
+            RiverSettings river = Configuration.RiverSettings;
+            FalloffSettings falloff = Configuration.FalloffSettings;
 
             Task.Run(() =>
             {
-                HeightMap map = _heightMapBuilder.GenerateHeightMap(resolution, resolution, noise, coord);
+                if (token.IsCancellationRequested) return;
+
+                HeightMap map = _heightMapBuilder.GenerateCompoundHeightMap(
+                    startX,
+                    startZ,
+                    size,
+                    resolution,
+                    noise,
+                    macro,
+                    curve,
+                    water,
+                    river,
+                    falloff);
+
+                if (token.IsCancellationRequested) return;
+
                 if (Configuration.EnablePersistence)
                 {
                     _chunkStorage.SaveChunkAsync(coord, map);
                 }
 
-                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = map });
-            });
+                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = map, Resolution = resolution });
+            }, token);
         }
 
         private void ProcessCompletedChunks()
@@ -255,12 +313,12 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
         public void Regenerate()
         {
+            CancelInFlightTasks();
             ClearAllChunks();
             InitializeServices();
 
             if (!Application.isPlaying)
             {
-                // Synchronous generation for Editor preview
                 GenerateEditorPreview();
             }
             else
@@ -274,18 +332,29 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private void GenerateEditorPreview()
         {
             ChunkCoordinate centerCoord = new ChunkCoordinate(0, 0);
-            int resolution = Configuration.ChunkResolution + 1;
-            HeightMap map = _heightMapBuilder.GenerateHeightMap(
-                resolution,
+            int resolution = Configuration.ChunkResolution;
+            int size = Configuration.ChunkSize;
+            float startX = -size * 0.5f;
+            float startZ = -size * 0.5f;
+
+            HeightMap map = _heightMapBuilder.GenerateCompoundHeightMap(
+                startX,
+                startZ,
+                size,
                 resolution,
                 Configuration.NoiseSettings,
-                centerCoord);
+                Configuration.MacroSettings,
+                Configuration.HeightCurveSettings,
+                Configuration.WaterSettings,
+                Configuration.RiverSettings,
+                Configuration.FalloffSettings);
 
             TerrainChunkView previewChunk = GetComponentInChildren<TerrainChunkView>();
             if (previewChunk == null)
             {
                 GameObject go = new GameObject("EditorPreviewChunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider), typeof(TerrainChunkView));
                 go.transform.SetParent(transform);
+                go.transform.localPosition = Vector3.zero;
                 previewChunk = go.GetComponent<TerrainChunkView>();
             }
 
@@ -303,8 +372,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
         public void ClearAllChunks()
         {
-            _inFlightCoordinates.Clear();
-            while (_completedQueue.TryDequeue(out _)) { }
+            CancelInFlightTasks();
 
             foreach (var kvp in _activeChunks)
             {
@@ -320,7 +388,10 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 TerrainChunkView[] children = GetComponentsInChildren<TerrainChunkView>();
                 foreach (TerrainChunkView child in children)
                 {
-                    DestroyImmediate(child.gameObject);
+                    if (child != null && child.gameObject != null)
+                    {
+                        DestroyImmediate(child.gameObject);
+                    }
                 }
             }
         }
@@ -341,13 +412,23 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 localX = Mathf.Clamp01(localX);
                 localZ = Mathf.Clamp01(localZ);
 
-                float normalized = chunk.HeightMap.InterpolateValue(localX, localZ);
-                return normalized * Configuration.NoiseSettings.HeightMultiplier;
+                return chunk.HeightMap.InterpolateValue(localX, localZ);
             }
 
-            // Fallback: evaluate procedural noise directly
-            float sample = _noiseGenerator?.SampleNoise(worldX, worldZ, Configuration.NoiseSettings) ?? 0f;
-            return sample * Configuration.NoiseSettings.HeightMultiplier;
+            if (_terrainShaper != null)
+            {
+                return _terrainShaper.CalculateElevation(
+                    worldX,
+                    worldZ,
+                    Configuration.NoiseSettings,
+                    Configuration.MacroSettings,
+                    Configuration.HeightCurveSettings,
+                    Configuration.WaterSettings,
+                    Configuration.RiverSettings,
+                    Configuration.FalloffSettings);
+            }
+
+            return 0f;
         }
 
         public Vector3 GetNormal(float worldX, float worldZ)
