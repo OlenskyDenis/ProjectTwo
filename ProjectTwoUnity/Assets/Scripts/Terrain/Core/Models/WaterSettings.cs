@@ -23,8 +23,8 @@ namespace ProjectTwo.Terrain.Core.Models
         [Range(0.01f, 10f)]
         public float ShorelineSmoothness;
 
-        [Tooltip("Optional water surface material reference.")]
-        public Material WaterSurfaceMaterial;
+        [Tooltip("Optional abstract water surface material descriptor.")]
+        public MaterialDescriptor WaterSurfaceMaterial;
 
         public static WaterSettings Default => new WaterSettings
         {
@@ -32,7 +32,7 @@ namespace ProjectTwo.Terrain.Core.Models
             SeaLevel = 5f,
             OceanFloorDepth = 10f,
             ShorelineSmoothness = 2f,
-            WaterSurfaceMaterial = null
+            WaterSurfaceMaterial = MaterialDescriptor.DefaultWater
         };
 
         public void Validate()

@@ -57,7 +57,13 @@ namespace ProjectTwo.Terrain.Presentation.Config
         public float MaxViewDistance = 600f;
 
         [Header("Visuals & Materials")]
-        [Tooltip("Material assigned to generated terrain chunks.")]
+        [Tooltip("Visual material profile defining shaders, color palettes, and biome bands.")]
+        public TerrainVisualProfileSO VisualProfile;
+
+        [Tooltip("Water visual profile defining river/lake shaders, flow, and transparency.")]
+        public WaterVisualProfileSO WaterVisualProfile;
+
+        [Tooltip("Legacy / direct material assigned to generated terrain chunks (optional).")]
         public Material TerrainMaterial;
 
         [Header("Persistence")]

@@ -36,8 +36,8 @@ namespace ProjectTwo.Terrain.Core.Models
         [Range(0.01f, 1f)]
         public float BlendSoftness;
 
-        [Tooltip("Optional custom material override for this biome layer.")]
-        public Material CustomMaterialOverride;
+        [Tooltip("Optional custom material descriptor / identifier for this biome layer.")]
+        public MaterialDescriptor CustomMaterialOverride;
 
         public TerrainRegion(string name, float heightThreshold, Color colorTint)
         {
@@ -49,7 +49,7 @@ namespace ProjectTwo.Terrain.Core.Models
             NormalMap = null;
             Tiling = new Vector2(1f, 1f);
             BlendSoftness = 0.1f;
-            CustomMaterialOverride = null;
+            CustomMaterialOverride = MaterialDescriptor.Default;
         }
 
         public static TerrainRegion[] CreateDefaultRegions()

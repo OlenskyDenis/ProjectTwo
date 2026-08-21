@@ -12,6 +12,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
     using ProjectTwo.Terrain.Presentation.Config;
     using ProjectTwo.Terrain.Presentation.Debug;
     using ProjectTwo.Terrain.Presentation.Pooling;
+    using ProjectTwo.Terrain.Presentation.Materials;
 
     /// <summary>
     /// Main controller managing infinite chunk streaming, background calculation tasks,
@@ -59,6 +60,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private ITectonicService _tectonicService;
         private IHydrologyService _hydrologyService;
         private IRiverMeshBuilder _riverMeshBuilder;
+        private ITerrainMaterialService _materialService;
 
         // Cached Global Macro Data
         private TectonicBoundary[] _cachedTectonicBoundaries;
@@ -97,6 +99,11 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 _chunkPool.Clear();
                 _chunkPool = null;
             }
+            if (_materialService != null)
+            {
+                _materialService.Dispose();
+                _materialService = null;
+            }
         }
 
         private void OnDisable()
@@ -107,6 +114,11 @@ namespace ProjectTwo.Terrain.Presentation.Components
             {
                 _chunkPool.Clear();
                 _chunkPool = null;
+            }
+            if (_materialService != null)
+            {
+                _materialService.Dispose();
+                _materialService = null;
             }
         }
 
@@ -208,9 +220,19 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 _cachedRiverGraph = RiverGraph.Empty;
             }
 
+            if (_materialService == null)
+            {
+                _materialService = new TerrainMaterialService();
+            }
+
             if (_chunkPool == null)
             {
-                _chunkPool = new ChunkObjectPool(transform, Configuration.TerrainMaterial, 36);
+                Material initialMaterial = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
+                if (initialMaterial == null && Configuration.TerrainMaterial != null)
+                {
+                    initialMaterial = Configuration.TerrainMaterial;
+                }
+                _chunkPool = new ChunkObjectPool(transform, initialMaterial, 36);
             }
         }
 
@@ -362,6 +384,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
                 if (distance <= Configuration.MaxViewDistance)
                 {
+                    Material terrainMat = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
+                    Material waterMat = _materialService.GetOrCreateWaterMaterial(Configuration.WaterVisualProfile);
+
                     TerrainChunkView chunk = _chunkPool.GetChunk();
                     chunk.Initialize(
                         result.Coordinate,
@@ -370,7 +395,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                         Configuration.NoiseSettings.HeightMultiplier,
                         Configuration.LodTiers,
                         Configuration.Regions,
-                        Configuration.TerrainMaterial);
+                        terrainMat);
 
                     // Build and bind procedural river water ribbon mesh for this chunk
                     if (Configuration.HydrologySettings.Enabled && _cachedRiverGraph != null)
@@ -382,7 +407,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                             Configuration.HydrologySettings,
                             Configuration.WaterSettings);
 
-                        chunk.SetRiverMesh(riverWater);
+                        chunk.SetRiverMesh(riverWater, waterMat);
                     }
                     else
                     {
@@ -429,6 +454,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
             int resolution = Configuration.ChunkResolution;
             int size = Configuration.ChunkSize;
 
+            Material terrainMat = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
+            Material waterMat = _materialService.GetOrCreateWaterMaterial(Configuration.WaterVisualProfile);
+
             for (int zOffset = -radius; zOffset <= radius; zOffset++)
             {
                 for (int xOffset = -radius; xOffset <= radius; xOffset++)
@@ -468,7 +496,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                         Configuration.NoiseSettings.HeightMultiplier,
                         Configuration.LodTiers,
                         Configuration.Regions,
-                        Configuration.TerrainMaterial);
+                        terrainMat);
 
                     if (Configuration.HydrologySettings.Enabled && _cachedRiverGraph != null)
                     {
@@ -479,7 +507,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                             Configuration.HydrologySettings,
                             Configuration.WaterSettings);
 
-                        chunk.SetRiverMesh(riverWater);
+                        chunk.SetRiverMesh(riverWater, waterMat);
                     }
 
                     chunk.UpdateLOD(0f);

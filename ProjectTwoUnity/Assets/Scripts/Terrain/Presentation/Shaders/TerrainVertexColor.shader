@@ -2,6 +2,7 @@ Shader "ProjectTwo/Terrain/VertexColorLit"
 {
     Properties
     {
+        _BaseColor ("Color Tint", Color) = (1,1,1,1)
         _Glossiness ("Smoothness", Range(0,1)) = 0.2
         _Metallic ("Metallic", Range(0,1)) = 0.0
     }
@@ -41,6 +42,12 @@ Shader "ProjectTwo/Terrain/VertexColorLit"
                 float2 uv : TEXCOORD0;
             };
 
+            CBUFFER_START(UnityPerMaterial)
+                float4 _BaseColor;
+                float _Glossiness;
+                float _Metallic;
+            CBUFFER_END
+
             Varyings vert(Attributes input)
             {
                 Varyings output;
@@ -64,7 +71,8 @@ Shader "ProjectTwo/Terrain/VertexColorLit"
                 float3 ambient = SampleSH(normal) * 0.4;
                 float3 diffuse = mainLight.color * (NdotL * 0.8 + 0.2);
 
-                float3 finalColor = input.color.rgb * (diffuse + ambient);
+                float3 vertexColor = input.color.rgb * _BaseColor.rgb;
+                float3 finalColor = vertexColor * (diffuse + ambient);
                 return half4(finalColor, 1.0);
             }
             ENDHLSL
@@ -80,6 +88,8 @@ Shader "ProjectTwo/Terrain/VertexColorLit"
         CGPROGRAM
         #pragma surface surf Lambert
 
+        fixed4 _BaseColor;
+
         struct Input
         {
             float4 color : COLOR;
@@ -87,7 +97,7 @@ Shader "ProjectTwo/Terrain/VertexColorLit"
 
         void surf(Input IN, inout SurfaceOutput o)
         {
-            o.Albedo = IN.color.rgb;
+            o.Albedo = IN.color.rgb * _BaseColor.rgb;
             o.Alpha = 1.0;
         }
         ENDCG

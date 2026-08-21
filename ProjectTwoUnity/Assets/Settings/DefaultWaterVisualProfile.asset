@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b261ae0a4701a684a8ac4daeefa0885b, type: 3}
+  m_Name: DefaultWaterVisualProfile
+  m_EditorClassIdentifier: ProjectTwo.Terrain.Runtime::ProjectTwo.Terrain.Presentation.Config.WaterVisualProfileSO
+  CustomWaterShader: {fileID: 4800000, guid: 21fc3f596642e7b419bdba9966742427, type: 3}
+  DirectWaterMaterialOverride: {fileID: 0}
+  DeepWaterColor: {r: 0.12, g: 0.38, b: 0.68, a: 0.85}
+  ShallowWaterColor: {r: 0.35, g: 0.65, b: 0.9, a: 0.6}
+  FlowSpeed: 1
+  WaveHeight: 0.2

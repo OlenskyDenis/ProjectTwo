@@ -11,10 +11,20 @@
 4. [BUG-004: Чорні крапки та мікрощілини в далині (LOD T-Junction Cracks)](#bug-004)
 5. [BUG-005: Помилка Input System у лічильнику FPS (InvalidOperationException)](#bug-005)
 6. [BUG-006: Попередження Unity про зміну асетів у immutable пакетах](#bug-006)
-
 7. [BUG-007: PhysX попередження про великі трикутники > 500 юнітів та подвійне масштабування висоти](#bug-007)
 8. [ARCH-008: Захист від зависань та витоків пам'яті через CancellationTokenSource](#arch-008)
 9. [UX-009: 3-вкладковий редизайн інспектора та система багаторівневого скидання налаштувань](#ux-009)
+10. [BUG-010: Некоректний розрахунок LOD спідниць](#bug-010)
+11. [BUG-011: Відсутність оновлення нормалей при зміні форми рельєфу](#bug-011)
+12. [BUG-012: Зависання інспектора ("Hold on...") при перемиканні вкладок конфігуратора](#bug-012)
+13. [BUG-013: Літаючі річки в небі (Sky Aqueducts) та збій шейдера води](#bug-013)
+14. [BUG-014: Квадратичне роздування висоти річок (Double Height Multiplier)](#bug-014)
+15. [BUG-015: Перестрибування гірських схилів на водоспадах та плоске вивертання річкової стрічки](#bug-015)
+16. [BUG-016: Перезапис налаштувань біомів через SerializedObject та залипання вкладок інспектора](#bug-016)
+17. [BUG-017: Білий рельєф через розбіжність імен шейдерів та відсутність _BaseColor](#bug-017)
+18. [BUG-018: Злітання текстур у None при перемиканні палітр пори року](#bug-018)
+19. [BUG-019: Відображення лише кольорів вершин замість тріпланарних текстур на 3D-ландшафті](#bug-019)
+20. [ARCH-020: Процедурний запікач текстур (Texture Baker) з 4D-тороїдальним безшовним шумом та запіканням у PNG](#arch-020)
 
 ---
 
@@ -252,6 +262,75 @@
   * **3D-орієнтація нормалей**: Поперечний вектор ширини розраховується через 3D векторний добуток із врахуванням кута нахилу водоспаду (`Vector3.Cross(tangent, approxUp)`).
   * **Динамічна ширина**: Гірські витоки починаються вузькими струмочками (2.5м) і розширюються по мірі злиття у великі річки.
 * **Файли**: `HydrologyService.cs`, `RiverMeshBuilder.cs`, `RiverMeshBuilderTests.cs`.
+
+---
+
+<a name="bug-016"></a>
+### 16. BUG-016: Перезапис налаштувань біомів через SerializedObject та залипання вкладок інспектора
+
+* **Симптоми**:
+  1. Клік по кнопках пір року («Літо», «Осінь», «Зима») не змінював кольори рельєфу в сцені або скидав їх назад у наступному кадрі.
+  2. Перемикання вкладок у `TerrainDataConfigEditor` переставало реагувати на кліки після вибору однієї з вкладок.
+* **Першопричина**:
+  1. Пряма зміна `config.Regions = ...` на C#-об'єкті відбувалася без синхронізації з `SerializedObject`. У кінці кадру виклик `serializedObject.ApplyModifiedProperties()` перезаписував масив старими даними з кешу серіалізації.
+  2. Виклик `GUIUtility.ExitGUI()` всередині обробників кнопок переривав IMGUI життєвий цикл винятком `ExitGUIException`, блокуючи стан `GUILayout.Toolbar`.
+* **Як вирішено**:
+  * **Централізований метод `ApplySeasonBiome`**: Здійснює `Undo.RecordObject`, присвоює масив, викликає `EditorUtility.SetDirty(config)`, оновлює `serializedObject.Update()` і тригерить `RegenerateActiveSceneTerrain()`.
+  * **Безпечна зміна вкладок**: Тулбар обгорнуто в `EditorGUI.BeginChangeCheck()` / `EditorGUI.EndChangeCheck()` з очищенням фокусу (`GUI.FocusControl(null)` та `GUIUtility.keyboardControl = 0`) без використання `ExitGUI()`.
+* **Файли**: `TerrainDataConfigEditor.cs`.
+
+---
+
+<a name="bug-017"></a>
+### 17. BUG-017: Білий рельєф через розбіжність імен шейдерів та відсутність _BaseColor
+
+* **Симптоми**: Рельєф відображався суцільно білим без кольорів біомів; зміна `GlobalTint` у `TerrainVisualProfileSO` не впливала на вигляд матеріалу.
+* **Першопричина**:
+  1. У `TerrainMaterialService.cs` константа дефолтного шейдера була записана як `"ProjectTwo/TerrainVertexColor"`, тоді як реальний шейдер називався `"ProjectTwo/Terrain/VertexColorLit"`. `Shader.Find` повертав `null` і перемикався на `URP/Lit`, який ігнорує кольори вершин (`input.color`).
+  2. У шейдері `TerrainVertexColor.shader` була відсутня властивість `_BaseColor` ("Color Tint", Color), через що сервіс матеріалів не міг передати глобальний відтінок.
+* **Як вирішено**:
+  * Синхронізовано точні шляхи шейдерів: `DefaultTerrainShaderName = "ProjectTwo/Terrain/VertexColorLit"` та `DefaultWaterShaderName = "ProjectTwo/Terrain/WaterSimple"`.
+  * Додано властивість `_BaseColor`, запис у CBuffer `UnityPerMaterial` та множення кольорів у фрагментному шейдері `TerrainVertexColor.shader`.
+  * Створено `TerrainTriplanar.shader` (`ProjectTwo/Terrain/TriplanarLit`) для повноцінного тріпланарного змішування текстур (трава, скелі, сніг).
+* **Файли**: `TerrainMaterialService.cs`, `TerrainVertexColor.shader`, `TerrainTriplanar.shader`.
+
+---
+
+<a name="bug-018"></a>
+### 18. BUG-018: Злітання текстур у None при перемиканні палітр пори року
+
+* **Симптоми**: Після запікання та прив'язки текстур до шарів будь-який клік на кнопки палітр («Літо», «Осінь», «Зима», «Пустеля», «Тропіки») скидав усі слоти `AlbedoTexture` та `NormalMap` назад у `None (Texture 2D)`.
+* **Першопричина**: Фабричні методи `TerrainRegion.CreateAutumnRegions()` тощо створювали нові екземпляри `TerrainRegion`, у конструкторах яких текстури були жорстко закодовані як `null`.
+* **Як вирішено**:
+  * Створено метод `AssignDefaultTexturesToRegions` у `TerrainDataConfigEditor.cs`, який аналізує семантику кожного шару нової палітри (вода, пісок, трава, скеля, сніг, земля) і автоматично підставляє згенеровані PNG-карти, унеможливлюючи скидання у `None`.
+* **Файли**: `TerrainDataConfigEditor.cs`, `TerrainRegion.cs`.
+
+---
+
+<a name="bug-019"></a>
+### 19. BUG-019: Відображення лише кольорів вершин замість тріпланарних текстур на 3D-ландшафті
+
+* **Симптоми**: Текстури були запечені та призначені в інспекторі, але 3D-ландшафт у Game / Scene view залишався розфарбованим гладкими кольорами вершин (Vertex Colors).
+* **Першопричина**:
+  1. У `DefaultTerrainVisualProfile.asset` поле `CustomTerrainShader` посилалося на шейдер кольору вершин `TerrainVertexColor` (який не семплює 2D-текстури), а параметр `EnableTriplanarBlending` дорівнював `0`.
+  2. У `TerrainMaterialService.ApplyTerrainProperties` передавався лише колір `_BaseColor`, але були відсутні виклики `mat.SetTexture` для `_FlatTex`, `_SlopeTex`, `_PeakTex` та карт нормалей з `BiomeBands`.
+* **Як вирішено**:
+  1. У `DefaultTerrainVisualProfile.asset` підключено `TerrainTriplanar.shader` (`ProjectTwo/Terrain/TriplanarLit`) та активовано `EnableTriplanarBlending = 1`.
+  2. У `TerrainMaterialService.ApplyTerrainProperties` реалізовано повноцінне вилучення текстур та нормалей із `profile.BiomeBands` і передачу у відповідні властивості шейдера (`_FlatTex`, `_SlopeTex`, `_PeakTex`, `_FlatNormal`, `_SlopeNormal`, `_PeakNormal`).
+* **Файли**: `DefaultTerrainVisualProfile.asset`, `TerrainMaterialService.cs`, `TerrainTriplanar.shader`.
+
+---
+
+<a name="arch-020"></a>
+### 20. ARCH-020: Процедурний запікач текстур (Texture Baker) з 4D-тороїдальним безшовним шумом та запіканням у PNG
+
+* **Архітектурна концепція**:
+  1. **Автономність**: C#-алгоритм `ProceduralTextureGenerator.cs` синтезує безшовний шум у 4D-тороїдальному просторі (без розривів на межах $u=0 \leftrightarrow 1$, $v=0 \leftrightarrow 1$) та аналітично розраховує карти нормалей за методом центральних різниць.
+  2. **Продуктивність (Bake once to PNG)**: Текстури запікаються у звичайні `.png` файли в `Assets/Textures/Terrain/`, що забезпечує нульовий CPU оверхед під час геймплею (GPU завантажує готові стиснені текстури).
+  3. **Авто-ініціалізація**: Через `[InitializeOnLoadMethod]` при першому відкритті проєкту перевіряється наявність файлів, і якщо папка порожня, система автоматично запікає повний набір з 5 пар текстур (10 файлів) і зв'язує їх з конфігурацією та візуальним профілем.
+* **Файли**: `ProceduralTextureGenerator.cs`, `ProceduralTextureBakerWindow.cs`, `ProceduralTextureGeneratorTests.cs`.
+
+
 
 
 

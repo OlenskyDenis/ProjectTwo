@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc5371dd6a1257f4fa37e2d636b27dbb, type: 3}
+  m_Name: DefaultTerrainVisualProfile
+  m_EditorClassIdentifier: ProjectTwo.Terrain.Runtime::ProjectTwo.Terrain.Presentation.Config.TerrainVisualProfileSO
+  CustomTerrainShader: {fileID: 4800000, guid: 9a72dfc48261e4719bbfe71a28a34d91, type: 3}
+  GlobalTint: {r: 1, g: 1, b: 1, a: 1}
+  EnableTriplanarBlending: 1
+  DirectMaterialOverride: {fileID: 0}
+  BiomeBands:
+  - Name: Deep Water
+    HeightThreshold: 0.2
+    SlopeThreshold: 0
+    Tint: {r: 0.1, g: 0.25, b: 0.65, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
+    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Shallow Water
+    HeightThreshold: 0.35
+    SlopeThreshold: 0
+    Tint: {r: 0.2, g: 0.5, b: 0.85, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
+    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Sand Beach
+    HeightThreshold: 0.4
+    SlopeThreshold: 0
+    Tint: {r: 0.85, g: 0.8, b: 0.5, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
+    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Green Grass
+    HeightThreshold: 0.65
+    SlopeThreshold: 0
+    Tint: {r: 0.3, g: 0.65, b: 0.25, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: e435ef1565a01e540848378d11d92371, type: 3}
+    NormalMap: {fileID: 2800000, guid: 43586f20ffbe74042a33f1899b7e1aca, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Pine Forest
+    HeightThreshold: 0.75
+    SlopeThreshold: 0
+    Tint: {r: 0.18, g: 0.45, b: 0.15, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: e435ef1565a01e540848378d11d92371, type: 3}
+    NormalMap: {fileID: 2800000, guid: 43586f20ffbe74042a33f1899b7e1aca, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Grey Mountain Rock
+    HeightThreshold: 0.9
+    SlopeThreshold: 35
+    Tint: {r: 0.5, g: 0.45, b: 0.4, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: 84b43bf5542c3cb41b68cf657febca68, type: 3}
+    NormalMap: {fileID: 2800000, guid: 0dd2f27fb6b010440ad733cd36df60a0, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+  - Name: Snowy Peaks
+    HeightThreshold: 1
+    SlopeThreshold: 0
+    Tint: {r: 0.95, g: 0.95, b: 0.98, a: 1}
+    AlbedoTexture: {fileID: 2800000, guid: 6b26803b855fc794484cbb2d4440a236, type: 3}
+    NormalMap: {fileID: 2800000, guid: 9765adb22ee0f294788556648776c3a8, type: 3}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1

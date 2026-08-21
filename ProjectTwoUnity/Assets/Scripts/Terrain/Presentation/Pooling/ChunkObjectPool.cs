@@ -18,22 +18,7 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
         public ChunkObjectPool(Transform parent, Material customMaterial = null, int initialCapacity = 36)
         {
             _parent = parent;
-            
-            if (customMaterial != null)
-            {
-                _defaultMaterial = customMaterial;
-            }
-            else
-            {
-                Shader shader = Shader.Find("ProjectTwo/Terrain/VertexColorLit")
-                             ?? Shader.Find("Universal Render Pipeline/Particles/Lit")
-                             ?? Shader.Find("Universal Render Pipeline/Simple Lit")
-                             ?? Shader.Find("Universal Render Pipeline/Lit")
-                             ?? Shader.Find("Standard")
-                             ?? Shader.Find("Sprites/Default");
-
-                _defaultMaterial = new Material(shader) { name = "DefaultTerrainVertexMaterial" };
-            }
+            _defaultMaterial = customMaterial;
 
             int capacity = Application.isPlaying ? initialCapacity : 0;
             for (int i = 0; i < capacity; i++)

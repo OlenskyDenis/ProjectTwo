@@ -31,9 +31,6 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private LODInfo[] _lodTiers;
         private TerrainRegion[] _regions;
 
-        private static Material _cachedDefaultMaterial;
-        private static Material _cachedDefaultRiverMaterial;
-
         private void Awake()
         {
             _meshFilter = GetComponent<MeshFilter>();
@@ -70,28 +67,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
             _lodTiers = lodTiers;
             _regions = regions;
 
-            if (_meshRenderer != null)
+            if (_meshRenderer != null && material != null)
             {
-                if (material != null)
-                {
-                    _meshRenderer.sharedMaterial = material;
-                }
-                else
-                {
-                    if (_cachedDefaultMaterial == null)
-                    {
-                        Shader shader = Shader.Find("ProjectTwo/Terrain/VertexColorLit") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-                        if (shader != null)
-                        {
-                            _cachedDefaultMaterial = new Material(shader) { name = "DefaultTerrainVertexColorMat" };
-                        }
-                    }
-
-                    if (_cachedDefaultMaterial != null)
-                    {
-                        _meshRenderer.sharedMaterial = _cachedDefaultMaterial;
-                    }
-                }
+                _meshRenderer.sharedMaterial = material;
             }
 
             transform.position = coordinate.ToWorldPosition(chunkSize);
@@ -220,47 +198,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
             _riverMesh.triangles = riverMeshData.Triangles;
             _riverMesh.RecalculateBounds();
 
-            if (_riverMeshRenderer != null)
+            if (_riverMeshRenderer != null && riverMaterial != null)
             {
-                if (riverMaterial != null)
-                {
-                    _riverMeshRenderer.sharedMaterial = riverMaterial;
-                }
-                else
-                {
-                    if (_cachedDefaultRiverMaterial == null || _cachedDefaultRiverMaterial.shader == null || !_cachedDefaultRiverMaterial.shader.isSupported)
-                    {
-                        Shader waterShader = Shader.Find("ProjectTwo/Terrain/WaterSimple");
-                        if (waterShader == null || !waterShader.isSupported)
-                        {
-                            waterShader = Shader.Find("Universal Render Pipeline/Lit") ??
-                                         Shader.Find("Universal Render Pipeline/Simple Lit") ??
-                                         Shader.Find("ProjectTwo/Terrain/VertexColorLit") ??
-                                         Shader.Find("Standard") ??
-                                         Shader.Find("Sprites/Default") ??
-                                         Shader.Find("Unlit/Color");
-                        }
-                        if (waterShader != null)
-                        {
-                            _cachedDefaultRiverMaterial = new Material(waterShader) { name = "DefaultRiverWaterMat" };
-                            Color riverColor = new Color(0.15f, 0.48f, 0.85f, 0.85f);
-                            if (_cachedDefaultRiverMaterial.HasProperty("_BaseColor"))
-                            {
-                                _cachedDefaultRiverMaterial.SetColor("_BaseColor", riverColor);
-                            }
-                            if (_cachedDefaultRiverMaterial.HasProperty("_Color"))
-                            {
-                                _cachedDefaultRiverMaterial.SetColor("_Color", riverColor);
-                            }
-                            _cachedDefaultRiverMaterial.color = riverColor;
-                        }
-                    }
-
-                    if (_cachedDefaultRiverMaterial != null)
-                    {
-                        _riverMeshRenderer.sharedMaterial = _cachedDefaultRiverMaterial;
-                    }
-                }
+                _riverMeshRenderer.sharedMaterial = riverMaterial;
             }
         }
 

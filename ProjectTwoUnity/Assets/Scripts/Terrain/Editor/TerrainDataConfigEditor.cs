@@ -28,6 +28,8 @@ namespace ProjectTwo.Terrain.Editor
         private SerializedProperty _lodTiersProp;
         private SerializedProperty _maxViewDistanceProp;
         private SerializedProperty _regionsProp;
+        private SerializedProperty _visualProfileProp;
+        private SerializedProperty _waterVisualProfileProp;
         private SerializedProperty _terrainMaterialProp;
         private SerializedProperty _enablePersistenceProp;
 
@@ -66,6 +68,8 @@ namespace ProjectTwo.Terrain.Editor
             _lodTiersProp = serializedObject.FindProperty("LodTiers");
             _maxViewDistanceProp = serializedObject.FindProperty("MaxViewDistance");
             _regionsProp = serializedObject.FindProperty("Regions");
+            _visualProfileProp = serializedObject.FindProperty("VisualProfile");
+            _waterVisualProfileProp = serializedObject.FindProperty("WaterVisualProfile");
             _terrainMaterialProp = serializedObject.FindProperty("TerrainMaterial");
             _enablePersistenceProp = serializedObject.FindProperty("EnablePersistence");
 
@@ -221,7 +225,14 @@ namespace ProjectTwo.Terrain.Editor
                 fixedHeight = 30
             };
 
-            _selectedTab = GUILayout.Toolbar(_selectedTab, TabTitles, tabStyle);
+            EditorGUI.BeginChangeCheck();
+            int newTab = GUILayout.Toolbar(_selectedTab, TabTitles, tabStyle);
+            if (EditorGUI.EndChangeCheck())
+            {
+                _selectedTab = newTab;
+                GUI.FocusControl(null);
+                GUIUtility.keyboardControl = 0;
+            }
         }
 
         #region Tab 0: Express Mode
@@ -332,35 +343,43 @@ namespace ProjectTwo.Terrain.Editor
 
             if (GUILayout.Button("🌲 Літо", GUILayout.Height(28)))
             {
-                Undo.RecordObject(config, "Apply Summer Biome");
-                config.Regions = TerrainRegion.CreateDefaultRegions();
-                EditorUtility.SetDirty(config);
+                ApplySeasonBiome(config, TerrainRegion.CreateDefaultRegions(), "Apply Summer Biome");
             }
             if (GUILayout.Button("🍂 Осінь", GUILayout.Height(28)))
             {
-                Undo.RecordObject(config, "Apply Autumn Biome");
-                config.Regions = TerrainRegion.CreateAutumnRegions();
-                EditorUtility.SetDirty(config);
+                ApplySeasonBiome(config, TerrainRegion.CreateAutumnRegions(), "Apply Autumn Biome");
             }
             if (GUILayout.Button("❄️ Зима", GUILayout.Height(28)))
             {
-                Undo.RecordObject(config, "Apply Arctic Biome");
-                config.Regions = TerrainRegion.CreateArcticRegions();
-                EditorUtility.SetDirty(config);
+                ApplySeasonBiome(config, TerrainRegion.CreateArcticRegions(), "Apply Arctic Biome");
             }
             if (GUILayout.Button("🏜️ Пустеля", GUILayout.Height(28)))
             {
-                Undo.RecordObject(config, "Apply Desert Biome");
-                config.Regions = TerrainRegion.CreateDesertRegions();
-                EditorUtility.SetDirty(config);
+                ApplySeasonBiome(config, TerrainRegion.CreateDesertRegions(), "Apply Desert Biome");
             }
             if (GUILayout.Button("🏝️ Тропіки", GUILayout.Height(28)))
             {
-                Undo.RecordObject(config, "Apply Tropical Biome");
-                config.Regions = TerrainRegion.CreateTropicalRegions();
-                EditorUtility.SetDirty(config);
+                ApplySeasonBiome(config, TerrainRegion.CreateTropicalRegions(), "Apply Tropical Biome");
             }
 
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(6);
+
+            EditorGUILayout.LabelField("📦 Модульні візуальні профілі (ScriptableObjects):", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_visualProfileProp, new GUIContent("Профіль рельєфу (Terrain Profile)"));
+            EditorGUILayout.PropertyField(_waterVisualProfileProp, new GUIContent("Профіль води (Water Profile)"));
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("🎨 Відкрити Texture Baker", GUILayout.Height(24)))
+            {
+                ProceduralTextureBakerWindow.ShowWindow();
+            }
+            if (GUILayout.Button("⚡ Запекти та підключити PNG-текстури", GUILayout.Height(24)))
+            {
+                ProceduralTextureBakerWindow.BakeAllDefaultTextures();
+                RegenerateActiveSceneTerrain();
+            }
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(6);
@@ -388,7 +407,9 @@ namespace ProjectTwo.Terrain.Editor
                 Undo.RecordObject(config, "Reset Biomes");
                 config.Regions = TerrainRegion.CreateDefaultRegions();
                 EditorUtility.SetDirty(config);
+                serializedObject.Update();
                 RegenerateActiveSceneTerrain();
+                GUIUtility.ExitGUI();
             }
             EditorGUILayout.EndHorizontal();
         }
@@ -540,7 +561,9 @@ namespace ProjectTwo.Terrain.Editor
                 EditorGUI.indentLevel++;
                 EditorGUILayout.PropertyField(_maxViewDistanceProp, new GUIContent("Дистанція видимості"));
                 EditorGUILayout.PropertyField(_lodTiersProp, new GUIContent("LOD Рівні"), true);
-                EditorGUILayout.PropertyField(_terrainMaterialProp, new GUIContent("Матеріал рельєфу"));
+                EditorGUILayout.PropertyField(_visualProfileProp, new GUIContent("Профіль рельєфу (Visual Profile)"));
+                EditorGUILayout.PropertyField(_waterVisualProfileProp, new GUIContent("Профіль води (Water Profile)"));
+                EditorGUILayout.PropertyField(_terrainMaterialProp, new GUIContent("Матеріал рельєфу (Legacy)"));
                 EditorGUILayout.PropertyField(_enablePersistenceProp, new GUIContent("Кешування чанків"));
                 if (GUILayout.Button("🔄 Скинути LOD-налаштування (600m / 4 tiers)"))
                 {
@@ -621,6 +644,70 @@ namespace ProjectTwo.Terrain.Editor
             {
                 generator.Regenerate();
             }
+        }
+
+        public static void AssignDefaultTexturesToRegions(TerrainRegion[] regions)
+        {
+            if (regions == null || regions.Length == 0) return;
+
+            Texture2D grassAlbedo = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Grass_Albedo.png");
+            Texture2D grassNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Grass_Normal.png");
+
+            Texture2D rockAlbedo = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Rock_Albedo.png");
+            Texture2D rockNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Rock_Normal.png");
+
+            Texture2D sandAlbedo = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Sand_Albedo.png");
+            Texture2D sandNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Sand_Normal.png");
+
+            Texture2D snowAlbedo = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Snow_Albedo.png");
+            Texture2D snowNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Snow_Normal.png");
+
+            Texture2D dirtAlbedo = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Dirt_Albedo.png");
+            Texture2D dirtNormal = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Terrain/Dirt_Normal.png");
+
+            for (int i = 0; i < regions.Length; i++)
+            {
+                var reg = regions[i];
+                string name = reg.Name.ToLowerInvariant();
+
+                if (name.Contains("snow") || name.Contains("frost") || name.Contains("glacial") || reg.HeightThreshold >= 0.95f)
+                {
+                    reg.AlbedoTexture = snowAlbedo;
+                    reg.NormalMap = snowNormal;
+                }
+                else if (name.Contains("rock") || name.Contains("granite") || name.Contains("canyon") || name.Contains("cliff") || name.Contains("basalt") || reg.SlopeThreshold > 10f)
+                {
+                    reg.AlbedoTexture = rockAlbedo;
+                    reg.NormalMap = rockNormal;
+                }
+                else if (name.Contains("sand") || name.Contains("beach") || name.Contains("dust") || name.Contains("dune") || name.Contains("water") || name.Contains("lake") || name.Contains("ocean"))
+                {
+                    reg.AlbedoTexture = sandAlbedo;
+                    reg.NormalMap = sandNormal;
+                }
+                else if (name.Contains("dirt") || name.Contains("pebble") || name.Contains("wood") || name.Contains("mesa"))
+                {
+                    reg.AlbedoTexture = dirtAlbedo != null ? dirtAlbedo : rockAlbedo;
+                    reg.NormalMap = dirtNormal != null ? dirtNormal : rockNormal;
+                }
+                else
+                {
+                    reg.AlbedoTexture = grassAlbedo;
+                    reg.NormalMap = grassNormal;
+                }
+
+                regions[i] = reg;
+            }
+        }
+
+        private void ApplySeasonBiome(TerrainDataConfig config, TerrainRegion[] regions, string undoName)
+        {
+            Undo.RecordObject(config, undoName);
+            AssignDefaultTexturesToRegions(regions);
+            config.Regions = regions;
+            EditorUtility.SetDirty(config);
+            serializedObject.Update();
+            RegenerateActiveSceneTerrain();
         }
 
         private void ApplyAlpinePreset(TerrainDataConfig config)
