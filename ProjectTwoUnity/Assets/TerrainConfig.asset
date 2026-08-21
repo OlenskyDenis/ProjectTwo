@@ -12,16 +12,155 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea79deea5f1eaeb4d9eccfd39c1a5ebb, type: 3}
   m_Name: TerrainConfig
   m_EditorClassIdentifier: ProjectTwo.Terrain.Runtime::ProjectTwo.Terrain.Presentation.Config.TerrainDataConfig
-  ChunkSize: 36
-  ChunkResolution: 240
+  ChunkSize: 240
+  ChunkResolution: 120
   NoiseSettings:
-    Seed: 1337
-    Scale: 50
-    Octaves: 4
+    Type: 1
+    Seed: 1101
+    Scale: 160
+    Octaves: 5
     Persistence: 0.5
-    Lacunarity: 2
-    HeightMultiplier: 30
+    Lacunarity: 2.1
+    HeightMultiplier: 80
     Offset: {x: 0, y: 0}
+  MacroSettings:
+    Enabled: 1
+    Seed: 777
+    Scale: 600
+    MountainAmplification: 2.2
+    ValleyDamping: 0.2
+    PowerExponent: 1.5
+  TectonicSettings:
+    Enabled: 1
+    Seed: 24236
+    PlateCount: 12
+    PlateScale: 1200
+    MountainUplift: 110
+    RiftDepth: 35
+    BoundaryInfluenceWidth: 320
+    RidgeSharpness: 1.7
+    FaultNoiseWarp: 0.35
+  HeightCurveSettings:
+    UseCurve: 0
+    ElevationCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 1
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    PowerExponent: 1
+    TerraceSteps: 0
+  FalloffSettings:
+    Mode: 0
+    FalloffStartRadius: 300
+    FalloffEndRadius: 600
+    PowerExponent: 2
+  WaterSettings:
+    Enabled: 0
+    SeaLevel: 5
+    OceanFloorDepth: 10
+    ShorelineSmoothness: 2
+    WaterSurfaceMaterial: {fileID: 0}
+  RiverSettings:
+    Enabled: 0
+    Seed: 555
+    Frequency: 0.005
+    CarveDepth: 12
+    RiverbedWidth: 20
+    BankSmoothness: 0.4
+  HydrologySettings:
+    Enabled: 1
+    Seed: 72779
+    SourceCount: 24
+    MinSourceElevationRatio: 0.5
+    BaseRiverWidth: 10
+    WidthGrowthFactor: 1.7
+    BaseCarveDepth: 16
+    BankSmoothness: 0.45
+    MeanderIntensity: 0.35
+    LakeMinDepthThreshold: 8
+  Regions:
+  - Name: Deep Water
+    HeightThreshold: 0.2
+    SlopeThreshold: 0
+    ColorTint: {r: 0.1, g: 0.25, b: 0.65, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Shallow Water
+    HeightThreshold: 0.35
+    SlopeThreshold: 0
+    ColorTint: {r: 0.2, g: 0.5, b: 0.85, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Sand Beach
+    HeightThreshold: 0.4
+    SlopeThreshold: 0
+    ColorTint: {r: 0.85, g: 0.8, b: 0.5, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Green Grass
+    HeightThreshold: 0.65
+    SlopeThreshold: 0
+    ColorTint: {r: 0.3, g: 0.65, b: 0.25, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Pine Forest
+    HeightThreshold: 0.75
+    SlopeThreshold: 0
+    ColorTint: {r: 0.18, g: 0.45, b: 0.15, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Grey Mountain Rock
+    HeightThreshold: 0.9
+    SlopeThreshold: 35
+    ColorTint: {r: 0.5, g: 0.45, b: 0.4, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
+  - Name: Snowy Peaks
+    HeightThreshold: 1
+    SlopeThreshold: 0
+    ColorTint: {r: 0.95, g: 0.95, b: 0.98, a: 1}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
+    Tiling: {x: 1, y: 1}
+    BlendSoftness: 0.1
+    CustomMaterialOverride: {fileID: 0}
   LodTiers:
   - LodIndex: 0
     VisibleDistanceThreshold: 150
@@ -39,28 +178,6 @@ MonoBehaviour:
     VisibleDistanceThreshold: 600
     MeshResolutionStep: 6
     HasCollider: 0
-  MaxViewDistance: 782
-  Regions:
-  - Name: Deep Water
-    HeightThreshold: 0.2
-    ColorTint: {r: 0.1, g: 0.25, b: 0.65, a: 1}
-  - Name: Shallow Water
-    HeightThreshold: 0.35
-    ColorTint: {r: 0.2, g: 0.5, b: 0.85, a: 1}
-  - Name: Sand
-    HeightThreshold: 0.4
-    ColorTint: {r: 0.85, g: 0.8, b: 0.5, a: 1}
-  - Name: Grass
-    HeightThreshold: 0.65
-    ColorTint: {r: 0.3, g: 0.65, b: 0.25, a: 1}
-  - Name: Forest
-    HeightThreshold: 0.75
-    ColorTint: {r: 0.18, g: 0.45, b: 0.15, a: 1}
-  - Name: Rock
-    HeightThreshold: 0.9
-    ColorTint: {r: 0.5, g: 0.45, b: 0.4, a: 1}
-  - Name: Snow
-    HeightThreshold: 1
-    ColorTint: {r: 0.95, g: 0.95, b: 0.98, a: 1}
+  MaxViewDistance: 600
   TerrainMaterial: {fileID: 0}
   EnablePersistence: 1

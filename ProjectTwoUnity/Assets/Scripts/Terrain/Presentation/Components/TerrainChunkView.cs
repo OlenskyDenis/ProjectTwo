@@ -228,15 +228,31 @@ namespace ProjectTwo.Terrain.Presentation.Components
                 }
                 else
                 {
-                    if (_cachedDefaultRiverMaterial == null)
+                    if (_cachedDefaultRiverMaterial == null || _cachedDefaultRiverMaterial.shader == null || !_cachedDefaultRiverMaterial.shader.isSupported)
                     {
-                        Shader waterShader = Shader.Find("ProjectTwo/Terrain/WaterSimple") ??
-                                             Shader.Find("Universal Render Pipeline/Lit") ??
-                                             Shader.Find("Standard");
+                        Shader waterShader = Shader.Find("ProjectTwo/Terrain/WaterSimple");
+                        if (waterShader == null || !waterShader.isSupported)
+                        {
+                            waterShader = Shader.Find("Universal Render Pipeline/Lit") ??
+                                         Shader.Find("Universal Render Pipeline/Simple Lit") ??
+                                         Shader.Find("ProjectTwo/Terrain/VertexColorLit") ??
+                                         Shader.Find("Standard") ??
+                                         Shader.Find("Sprites/Default") ??
+                                         Shader.Find("Unlit/Color");
+                        }
                         if (waterShader != null)
                         {
                             _cachedDefaultRiverMaterial = new Material(waterShader) { name = "DefaultRiverWaterMat" };
-                            _cachedDefaultRiverMaterial.color = new Color(0.15f, 0.45f, 0.85f, 0.85f);
+                            Color riverColor = new Color(0.15f, 0.48f, 0.85f, 0.85f);
+                            if (_cachedDefaultRiverMaterial.HasProperty("_BaseColor"))
+                            {
+                                _cachedDefaultRiverMaterial.SetColor("_BaseColor", riverColor);
+                            }
+                            if (_cachedDefaultRiverMaterial.HasProperty("_Color"))
+                            {
+                                _cachedDefaultRiverMaterial.SetColor("_Color", riverColor);
+                            }
+                            _cachedDefaultRiverMaterial.color = riverColor;
                         }
                     }
 

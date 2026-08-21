@@ -72,12 +72,23 @@ namespace ProjectTwo.Terrain.Core.Services
                     }
                     prevCenter = center;
 
-                    Vector3 lateral = new Vector3(-tangent.z, 0f, tangent.x).normalized;
+                    Vector3 approxUp = Vector3.up;
+                    if (Mathf.Abs(Vector3.Dot(tangent, Vector3.up)) > 0.85f)
+                    {
+                        approxUp = new Vector3(tangent.x, 0f, tangent.z).normalized;
+                        if (approxUp.sqrMagnitude < 0.001f) approxUp = Vector3.forward;
+                    }
+
+                    Vector3 lateral = Vector3.Cross(tangent, approxUp).normalized;
+                    if (lateral.sqrMagnitude < 0.001f) lateral = Vector3.right;
+
+                    Vector3 normal = Vector3.Cross(lateral, tangent).normalized;
+                    if (normal.y < 0f && approxUp == Vector3.up) normal = -normal;
 
                     // Convert to chunk local space centered at (0,0)
                     Vector3 localCenter = center - chunkOrigin;
                     // Slightly raise water surface above the carved channel base
-                    localCenter.y += 0.2f;
+                    localCenter += normal * 0.15f;
 
                     Vector3 leftPos = localCenter - lateral * halfWidth;
                     Vector3 rightPos = localCenter + lateral * halfWidth;
@@ -87,8 +98,8 @@ namespace ProjectTwo.Terrain.Core.Services
                     vertices.Add(leftPos);
                     vertices.Add(rightPos);
 
-                    normals.Add(Vector3.up);
-                    normals.Add(Vector3.up);
+                    normals.Add(normal);
+                    normals.Add(normal);
 
                     uvs.Add(new Vector2(0f, vCoord));
                     uvs.Add(new Vector2(1f, vCoord));

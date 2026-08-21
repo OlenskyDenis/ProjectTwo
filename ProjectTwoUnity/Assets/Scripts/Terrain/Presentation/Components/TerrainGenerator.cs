@@ -53,7 +53,6 @@ namespace ProjectTwo.Terrain.Presentation.Components
         public event Action OnTerrainRegenerated;
 
         // Core Domain Services
-        private INoiseGenerator _noiseGenerator;
         private ITerrainShaper _terrainShaper;
         private HeightMapBuilder _heightMapBuilder;
         private IChunkStorage _chunkStorage;
@@ -92,6 +91,23 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private void OnDestroy()
         {
             CancelInFlightTasks();
+            ClearAllChunks();
+            if (_chunkPool != null)
+            {
+                _chunkPool.Clear();
+                _chunkPool = null;
+            }
+        }
+
+        private void OnDisable()
+        {
+            CancelInFlightTasks();
+            ClearAllChunks();
+            if (_chunkPool != null)
+            {
+                _chunkPool.Clear();
+                _chunkPool = null;
+            }
         }
 
         private void Start()
@@ -157,7 +173,6 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
             Configuration.Validate();
 
-            _noiseGenerator = new PerlinNoiseGenerator();
             _terrainShaper = new ProceduralTerrainShaper();
             _heightMapBuilder = new HeightMapBuilder(_terrainShaper);
             _chunkStorage = new MemoryChunkStorage();
@@ -440,7 +455,8 @@ namespace ProjectTwo.Terrain.Presentation.Components
                         Configuration.FalloffSettings);
 
                     GameObject chunkGo = new GameObject($"EditorChunk_{coord.X}_{coord.Z}",
-                        typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider), typeof(TerrainChunkView));
+                        typeof(MeshFilter), typeof(MeshRenderer), typeof(TerrainChunkView));
+                    chunkGo.hideFlags = HideFlags.DontSave;
                     chunkGo.transform.SetParent(transform);
                     chunkGo.transform.localPosition = coord.ToWorldPosition(size);
 
@@ -487,7 +503,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
             if (!Application.isPlaying)
             {
-                TerrainChunkView[] children = GetComponentsInChildren<TerrainChunkView>();
+                TerrainChunkView[] children = GetComponentsInChildren<TerrainChunkView>(true);
                 foreach (TerrainChunkView child in children)
                 {
                     if (child != null && child.gameObject != null)

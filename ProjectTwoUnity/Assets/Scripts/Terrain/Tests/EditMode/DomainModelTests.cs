@@ -127,5 +127,24 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             // Null apply does not throw
             Assert.DoesNotThrow(() => meshData.ApplyToMesh(null));
         }
+
+        [Test]
+        public void ChunkObjectPool_Instances_AreMarkedWithDontSave_ToPreventSceneDiskPollution_WhileMaintainingObservability()
+        {
+            GameObject parentGo = new GameObject("TestTerrainPoolParent");
+            try
+            {
+                var pool = new ProjectTwo.Terrain.Presentation.Pooling.ChunkObjectPool(parentGo.transform, null, 2);
+                var chunk = pool.GetChunk();
+                Assert.IsNotNull(chunk);
+                Assert.AreEqual(HideFlags.DontSave, chunk.gameObject.hideFlags,
+                    "Chunk GameObjects must be marked with HideFlags.DontSave to prevent saving to scene disk while maintaining Hierarchy observability in PlayMode.");
+                pool.Clear();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parentGo);
+            }
+        }
     }
 }

@@ -81,5 +81,64 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             Assert.IsNotNull(meshData);
             Assert.IsTrue(meshData.IsEmpty, "Non-intersecting chunk should return empty river mesh data.");
         }
+
+        [Test]
+        public void BuildChunkRiverMesh_Vertices_AreBoundedWithinExpectedElevationRange()
+        {
+            var coord = new ChunkCoordinate(0, 0);
+            float chunkSize = 240f;
+
+            var segments = new[]
+            {
+                new RiverSegment(
+                    0, 0, 1,
+                    new Vector3(-40f, 18f, -40f),
+                    new Vector3(0f, 15f, 0f),
+                    new Vector3(40f, 12f, 40f),
+                    length: 113f,
+                    channelWidth: 10f,
+                    carveDepth: 5f,
+                    streamOrder: 1,
+                    flowRate: 2f)
+            };
+
+            var graph = new RiverGraph(null, segments, null);
+            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, HydrologySettings.Default, WaterSettings.Default);
+
+            Assert.IsFalse(meshData.IsEmpty);
+            for (int i = 0; i < meshData.Vertices.Length; i++)
+            {
+                Vector3 v = meshData.Vertices[i];
+                Assert.GreaterOrEqual(v.y, 10f, $"River vertex {i} Y elevation must not plunge below lower segment height.");
+                Assert.LessOrEqual(v.y, 25f, $"River vertex {i} Y elevation must not spike into the sky.");
+            }
+        }
+
+        [Test]
+        public void HydrologyService_GenerateRiverGraph_ElevationsAreBoundedBySingleHeightMultiplier()
+        {
+            var shaper = new ProceduralTerrainShaper();
+            var hydrology = new HydrologyService();
+            var noise = NoiseSettings.Default;
+            var tectonics = TectonicSettings.Default;
+            var water = WaterSettings.Default;
+            var hydroSettings = HydrologySettings.Default;
+
+            RiverGraph graph = hydrology.GenerateRiverGraph(hydroSettings, shaper, noise, tectonics, water);
+
+            Assert.IsNotNull(graph);
+            Assert.IsNotNull(graph.Segments);
+
+            float maxAllowedHeight = noise.HeightMultiplier + (tectonics.Enabled ? tectonics.MountainUplift : 0f) + 10f;
+
+            for (int i = 0; i < graph.Segments.Length; i++)
+            {
+                ref readonly RiverSegment seg = ref graph.Segments[i];
+                Assert.LessOrEqual(seg.StartPosition.y, maxAllowedHeight, $"River segment {i} StartPosition.y must not be quadratically inflated into sky.");
+                Assert.LessOrEqual(seg.EndPosition.y, maxAllowedHeight, $"River segment {i} EndPosition.y must not be quadratically inflated into sky.");
+                Assert.LessOrEqual(seg.ControlPoint.y, maxAllowedHeight, $"River segment {i} ControlPoint.y must not be quadratically inflated into sky.");
+            }
+        }
     }
 }
+

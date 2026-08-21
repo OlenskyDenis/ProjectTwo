@@ -1,3 +1,8 @@
+# Core Contracts Specification & Single Pipeline Guarantees
+
+## 1. `ITerrainShaper` (Authoritative Contract)
+
+```csharp
 namespace ProjectTwo.Terrain.Core.Contracts
 {
     using ProjectTwo.Terrain.Core.Models;
@@ -5,7 +10,6 @@ namespace ProjectTwo.Terrain.Core.Contracts
     /// <summary>
     /// Thread-safe mathematical service calculating compound procedural elevation and heightmaps.
     /// Incorporates noise types, macro continental masks, tectonics, river carving, water basins, and elevation curves.
-    /// Strictly adheres to Constitution Principle VI (Single Authoritative Pipeline).
     /// </summary>
     public interface ITerrainShaper
     {
@@ -47,3 +51,27 @@ namespace ProjectTwo.Terrain.Core.Contracts
             float[,] outputBuffer);
     }
 }
+```
+
+### Prohibited Stale Overloads
+- `CalculateElevation(float, float, NoiseSettings, MacroMaskSettings, HeightCurveSettings, WaterSettings, RiverSettings, FalloffSettings)` — **PROHIBITED** (bypasses tectonics and hydrology).
+- `GenerateHeightMap(float, float, float, int, NoiseSettings, MacroMaskSettings, HeightCurveSettings, WaterSettings, RiverSettings, FalloffSettings, float[,])` — **PROHIBITED** (bypasses tectonics and hydrology).
+
+---
+
+## 2. `IContractReflectionGuard` (Test Contract)
+
+```csharp
+namespace ProjectTwo.Terrain.Tests.EditMode
+{
+    /// <summary>
+    /// Contract test fixture enforcing Constitution Principle VI and public API purity via reflection.
+    /// </summary>
+    public interface IContractReflectionGuard
+    {
+        void AssertNoStaleMethodOverloadsOnContract(System.Type contractType);
+        void AssertSingleAuthoritativeCalculationPipeline();
+        void AssertAllDomainContractsFrozen();
+    }
+}
+```

@@ -21,13 +21,15 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             var noise = NoiseSettings.Default;
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
-            float h1 = _shaper.CalculateElevation(123.45f, 678.90f, noise, macro, curve, water, river, falloff);
-            float h2 = _shaper.CalculateElevation(123.45f, 678.90f, noise, macro, curve, water, river, falloff);
+            float h1 = _shaper.CalculateElevation(123.45f, 678.90f, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
+            float h2 = _shaper.CalculateElevation(123.45f, 678.90f, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
 
             Assert.AreEqual(h1, h2, 0.00001f);
         }
@@ -36,9 +38,11 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         public void CalculateElevation_SupportsAllNoiseTypes()
         {
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
             var perlin = NoiseSettings.Default;
@@ -50,9 +54,9 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             var billow = NoiseSettings.Default;
             billow.Type = NoiseType.Billow;
 
-            float hPerlin = _shaper.CalculateElevation(50f, 50f, perlin, macro, curve, water, river, falloff);
-            float hRidged = _shaper.CalculateElevation(50f, 50f, ridged, macro, curve, water, river, falloff);
-            float hBillow = _shaper.CalculateElevation(50f, 50f, billow, macro, curve, water, river, falloff);
+            float hPerlin = _shaper.CalculateElevation(50f, 50f, perlin, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
+            float hRidged = _shaper.CalculateElevation(50f, 50f, ridged, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
+            float hBillow = _shaper.CalculateElevation(50f, 50f, billow, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
 
             Assert.IsFalse(float.IsNaN(hPerlin));
             Assert.IsFalse(float.IsNaN(hRidged));
@@ -63,9 +67,11 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         public void CalculateElevation_MacroMaskAmplifiesMountains()
         {
             var noise = NoiseSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
             var macroDisabled = MacroMaskSettings.Default;
@@ -76,8 +82,8 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             macroEnabled.MountainAmplification = 3.0f;
             macroEnabled.ValleyDamping = 0.1f;
 
-            float hBase = _shaper.CalculateElevation(100f, 100f, noise, macroDisabled, curve, water, river, falloff);
-            float hMacro = _shaper.CalculateElevation(100f, 100f, noise, macroEnabled, curve, water, river, falloff);
+            float hBase = _shaper.CalculateElevation(100f, 100f, noise, macroDisabled, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
+            float hMacro = _shaper.CalculateElevation(100f, 100f, noise, macroEnabled, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
 
             Assert.IsFalse(float.IsNaN(hMacro));
             Assert.AreNotEqual(hBase, hMacro);
@@ -88,9 +94,11 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             var noise = NoiseSettings.Default;
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
 
             var falloff = new FalloffSettings
             {
@@ -100,8 +108,8 @@ namespace ProjectTwo.Terrain.Tests.EditMode
                 PowerExponent = 2.0f
             };
 
-            float hCenter = _shaper.CalculateElevation(0f, 0f, noise, macro, curve, water, river, falloff);
-            float hOuter = _shaper.CalculateElevation(350f, 0f, noise, macro, curve, water, river, falloff);
+            float hCenter = _shaper.CalculateElevation(0f, 0f, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
+            float hOuter = _shaper.CalculateElevation(350f, 0f, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
 
             Assert.Greater(hCenter, 0f);
             Assert.AreEqual(0f, hOuter, 0.001f);
@@ -112,8 +120,10 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             var noise = NoiseSettings.Default;
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
             var riverDisabled = RiverSettings.Default;
@@ -129,8 +139,8 @@ namespace ProjectTwo.Terrain.Tests.EditMode
                 BankSmoothness = 0.5f
             };
 
-            float hNoRiver = _shaper.CalculateElevation(25f, 25f, noise, macro, curve, water, riverDisabled, falloff);
-            float hWithRiver = _shaper.CalculateElevation(25f, 25f, noise, macro, curve, water, riverEnabled, falloff);
+            float hNoRiver = _shaper.CalculateElevation(25f, 25f, noise, macro, tectonics, null, curve, water, riverDisabled, hydrology, RiverGraph.Empty, falloff);
+            float hWithRiver = _shaper.CalculateElevation(25f, 25f, noise, macro, tectonics, null, curve, water, riverEnabled, hydrology, RiverGraph.Empty, falloff);
 
             Assert.IsFalse(float.IsNaN(hWithRiver));
             Assert.LessOrEqual(hWithRiver, hNoRiver + 0.001f);
@@ -142,8 +152,10 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             var noise = NoiseSettings.Default;
             noise.HeightMultiplier = 10f;
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
             var water = new WaterSettings
@@ -154,7 +166,7 @@ namespace ProjectTwo.Terrain.Tests.EditMode
                 ShorelineSmoothness = 1f
             };
 
-            float h = _shaper.CalculateElevation(0f, 0f, noise, macro, curve, water, river, falloff);
+            float h = _shaper.CalculateElevation(0f, 0f, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff);
             Assert.GreaterOrEqual(h, water.SeaLevel - water.OceanFloorDepth);
         }
 
@@ -163,15 +175,17 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             var noise = NoiseSettings.Default;
             var macro = MacroMaskSettings.Default;
+            var tectonics = TectonicSettings.Default;
             var curve = HeightCurveSettings.Default;
             var water = WaterSettings.Default;
             var river = RiverSettings.Default;
+            var hydrology = HydrologySettings.Default;
             var falloff = FalloffSettings.Default;
 
             int resolution = 24;
             float[,] buffer = new float[resolution + 1, resolution + 1];
 
-            _shaper.GenerateHeightMap(0, 0, 240, resolution, noise, macro, curve, water, river, falloff, buffer);
+            _shaper.GenerateHeightMap(0, 0, 240, resolution, noise, macro, tectonics, null, curve, water, river, hydrology, RiverGraph.Empty, falloff, buffer);
 
             Assert.AreEqual(25, buffer.GetLength(0));
             Assert.AreEqual(25, buffer.GetLength(1));

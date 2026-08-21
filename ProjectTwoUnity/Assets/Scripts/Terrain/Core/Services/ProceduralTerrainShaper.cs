@@ -20,31 +20,6 @@ namespace ProjectTwo.Terrain.Core.Services
             float worldZ,
             NoiseSettings noise,
             MacroMaskSettings macro,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            FalloffSettings falloff)
-        {
-            return CalculateElevation(
-                worldX,
-                worldZ,
-                noise,
-                macro,
-                default,
-                null,
-                heightCurve,
-                water,
-                river,
-                default,
-                null,
-                falloff);
-        }
-
-        public float CalculateElevation(
-            float worldX,
-            float worldZ,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
             TectonicSettings tectonics,
             TectonicBoundary[] tectonicBoundaries,
             HeightCurveSettings heightCurve,
@@ -191,37 +166,6 @@ namespace ProjectTwo.Terrain.Core.Services
             float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / l2);
             Vector2 projection = a + t * ab;
             return (p - projection).magnitude;
-        }
-
-        public void GenerateHeightMap(
-            float startX,
-            float startZ,
-            float size,
-            int resolution,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            FalloffSettings falloff,
-            float[,] outputBuffer)
-        {
-            GenerateHeightMap(
-                startX,
-                startZ,
-                size,
-                resolution,
-                noise,
-                macro,
-                default,
-                null,
-                heightCurve,
-                water,
-                river,
-                default,
-                null,
-                falloff,
-                outputBuffer);
         }
 
         public void GenerateHeightMap(

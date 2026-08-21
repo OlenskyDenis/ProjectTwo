@@ -10,50 +10,107 @@ namespace ProjectTwo.Terrain.Tests.EditMode
     public class HeightMapBuilderTests
     {
         private HeightMapBuilder _builder;
+        private ITerrainShaper _shaper;
 
         [SetUp]
         public void SetUp()
         {
-            _builder = new HeightMapBuilder(new PerlinNoiseGenerator());
+            _shaper = new ProceduralTerrainShaper();
+            _builder = new HeightMapBuilder(_shaper);
         }
 
         [Test]
-        public void Constructor_ThrowsOnNullGenerator()
+        public void Constructor_ThrowsOnNullShaper()
         {
-            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder((INoiseGenerator)null));
-            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder((ITerrainShaper)null));
+            Assert.Throws<ArgumentNullException>(() => new HeightMapBuilder(null));
         }
 
         [Test]
-        public void GenerateHeightMap_ProducesCorrectDimensions()
+        public void GenerateCompoundHeightMap_ProducesCorrectDimensions()
         {
-            int width = 32;
-            int height = 32;
-            NoiseSettings settings = NoiseSettings.Default;
-            ChunkCoordinate coord = new ChunkCoordinate(0, 0);
+            int resolution = 32;
+            float size = 240f;
+            NoiseSettings noise = NoiseSettings.Default;
+            MacroMaskSettings macro = MacroMaskSettings.Default;
+            TectonicSettings tectonics = TectonicSettings.Default;
+            HeightCurveSettings curve = HeightCurveSettings.Default;
+            WaterSettings water = WaterSettings.Default;
+            RiverSettings river = RiverSettings.Default;
+            HydrologySettings hydrology = HydrologySettings.Default;
+            FalloffSettings falloff = FalloffSettings.Default;
 
-            HeightMap map = _builder.GenerateHeightMap(width, height, settings, coord);
+            HeightMap map = _builder.GenerateCompoundHeightMap(
+                0f,
+                0f,
+                size,
+                resolution,
+                noise,
+                macro,
+                tectonics,
+                null,
+                curve,
+                water,
+                river,
+                hydrology,
+                RiverGraph.Empty,
+                falloff);
 
             Assert.IsNotNull(map);
-            Assert.AreEqual(width, map.Width);
-            Assert.AreEqual(height, map.Height);
+            Assert.AreEqual(resolution + 1, map.Width);
+            Assert.AreEqual(resolution + 1, map.Height);
+            Assert.IsTrue(map.MinValue <= map.MaxValue);
         }
 
         [Test]
-        public void GenerateHeightMap_IsDeterministic_AcrossMultipleCalls()
+        public void GenerateCompoundHeightMap_IsDeterministic_AcrossMultipleCalls()
         {
-            int width = 16;
-            int height = 16;
-            NoiseSettings settings = NoiseSettings.Default;
-            settings.Seed = 777;
-            ChunkCoordinate coord = new ChunkCoordinate(2, 3);
+            int resolution = 16;
+            float size = 240f;
+            NoiseSettings noise = NoiseSettings.Default;
+            noise.Seed = 777;
+            MacroMaskSettings macro = MacroMaskSettings.Default;
+            TectonicSettings tectonics = TectonicSettings.Default;
+            HeightCurveSettings curve = HeightCurveSettings.Default;
+            WaterSettings water = WaterSettings.Default;
+            RiverSettings river = RiverSettings.Default;
+            HydrologySettings hydrology = HydrologySettings.Default;
+            FalloffSettings falloff = FalloffSettings.Default;
 
-            HeightMap map1 = _builder.GenerateHeightMap(width, height, settings, coord);
-            HeightMap map2 = _builder.GenerateHeightMap(width, height, settings, coord);
+            HeightMap map1 = _builder.GenerateCompoundHeightMap(
+                100f,
+                200f,
+                size,
+                resolution,
+                noise,
+                macro,
+                tectonics,
+                null,
+                curve,
+                water,
+                river,
+                hydrology,
+                RiverGraph.Empty,
+                falloff);
 
-            for (int x = 0; x < width; x++)
+            HeightMap map2 = _builder.GenerateCompoundHeightMap(
+                100f,
+                200f,
+                size,
+                resolution,
+                noise,
+                macro,
+                tectonics,
+                null,
+                curve,
+                water,
+                river,
+                hydrology,
+                RiverGraph.Empty,
+                falloff);
+
+            for (int x = 0; x < resolution + 1; x++)
             {
-                for (int y = 0; y < height; y++)
+                for (int y = 0; y < resolution + 1; y++)
                 {
                     Assert.AreEqual(map1.Values[x, y], map2.Values[x, y], 1e-6f, $"Height values at [{x},{y}] must match across deterministic runs.");
                 }
@@ -63,16 +120,29 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         [Test]
         public void InterpolateValue_ReturnsSmoothValueInsideBounds()
         {
-            int width = 10;
-            int height = 10;
-            NoiseSettings settings = NoiseSettings.Default;
-            ChunkCoordinate coord = new ChunkCoordinate(0, 0);
+            int resolution = 12;
+            float size = 240f;
 
-            HeightMap map = _builder.GenerateHeightMap(width, height, settings, coord);
+            HeightMap map = _builder.GenerateCompoundHeightMap(
+                0f,
+                0f,
+                size,
+                resolution,
+                NoiseSettings.Default,
+                MacroMaskSettings.Default,
+                TectonicSettings.Default,
+                null,
+                HeightCurveSettings.Default,
+                WaterSettings.Default,
+                RiverSettings.Default,
+                HydrologySettings.Default,
+                RiverGraph.Empty,
+                FalloffSettings.Default);
 
             float interpolated = map.InterpolateValue(0.5f, 0.5f);
-            Assert.GreaterOrEqual(interpolated, 0f);
-            Assert.LessOrEqual(interpolated, 1f);
+            Assert.IsFalse(float.IsNaN(interpolated));
+            Assert.GreaterOrEqual(interpolated, map.MinValue);
+            Assert.LessOrEqual(interpolated, map.MaxValue);
         }
     }
 }

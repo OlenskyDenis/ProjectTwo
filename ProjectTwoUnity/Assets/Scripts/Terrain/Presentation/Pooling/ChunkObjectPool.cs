@@ -6,6 +6,8 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
 
     /// <summary>
     /// Object pool for terrain chunk GameObjects to prevent runtime memory allocations and GC spikes.
+    /// Uses transparent HideFlags.DontSave to prevent scene disk serialization while maintaining
+    /// full Hierarchy observability for QA and developers in PlayMode (Constitution Principle IV & V).
     /// </summary>
     public class ChunkObjectPool
     {
@@ -33,7 +35,8 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
                 _defaultMaterial = new Material(shader) { name = "DefaultTerrainVertexMaterial" };
             }
 
-            for (int i = 0; i < initialCapacity; i++)
+            int capacity = Application.isPlaying ? initialCapacity : 0;
+            for (int i = 0; i < capacity; i++)
             {
                 TerrainChunkView chunk = CreateNewChunkInstance();
                 chunk.ResetForPool();
@@ -44,7 +47,10 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
         public TerrainChunkView GetChunk()
         {
             TerrainChunkView chunk = _pool.Count > 0 ? _pool.Dequeue() : CreateNewChunkInstance();
-            chunk.gameObject.SetActive(true);
+            if (chunk != null)
+            {
+                chunk.gameObject.SetActive(true);
+            }
             return chunk;
         }
 
@@ -55,10 +61,14 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
             _pool.Enqueue(chunk);
         }
 
-        private TerrainChunkView CreateNewChunkInstance()
+        public TerrainChunkView CreateNewChunkInstance()
         {
             GameObject go = new GameObject("TerrainChunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider), typeof(TerrainChunkView));
-            go.transform.SetParent(_parent);
+            go.hideFlags = HideFlags.DontSave;
+            if (_parent != null)
+            {
+                go.transform.SetParent(_parent);
+            }
 
             MeshRenderer renderer = go.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = _defaultMaterial;
@@ -71,9 +81,16 @@ namespace ProjectTwo.Terrain.Presentation.Pooling
             while (_pool.Count > 0)
             {
                 TerrainChunkView chunk = _pool.Dequeue();
-                if (chunk != null)
+                if (chunk != null && chunk.gameObject != null)
                 {
-                    Object.Destroy(chunk.gameObject);
+                    if (Application.isPlaying)
+                    {
+                        Object.Destroy(chunk.gameObject);
+                    }
+                    else
+                    {
+                        Object.DestroyImmediate(chunk.gameObject);
+                    }
                 }
             }
         }

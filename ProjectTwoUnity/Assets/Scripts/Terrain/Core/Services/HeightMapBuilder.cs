@@ -5,58 +5,16 @@ namespace ProjectTwo.Terrain.Core.Services
     using ProjectTwo.Terrain.Core.Models;
 
     /// <summary>
-    /// Service responsible for building 2D heightmaps using an injected ITerrainShaper or INoiseGenerator.
-    /// Pure C# domain service supporting noise, tectonics, and hydrological river networks.
+    /// Service responsible for building compound 2D heightmaps via injected ITerrainShaper.
+    /// Pure C# domain service adhering strictly to SOLID (SRP, DIP) and Constitution Principle VI.
     /// </summary>
     public class HeightMapBuilder
     {
         private readonly ITerrainShaper _terrainShaper;
-        private readonly INoiseGenerator _noiseGenerator;
 
         public HeightMapBuilder(ITerrainShaper terrainShaper)
         {
             _terrainShaper = terrainShaper ?? throw new ArgumentNullException(nameof(terrainShaper));
-            _noiseGenerator = new PerlinNoiseGenerator();
-        }
-
-        public HeightMapBuilder(INoiseGenerator noiseGenerator)
-        {
-            _noiseGenerator = noiseGenerator ?? throw new ArgumentNullException(nameof(noiseGenerator));
-            _terrainShaper = new ProceduralTerrainShaper();
-        }
-
-        public HeightMap GenerateHeightMap(int mapWidth, int mapHeight, NoiseSettings settings, ChunkCoordinate chunkCoord)
-        {
-            return _noiseGenerator.GenerateHeightMap(mapWidth, mapHeight, settings, chunkCoord);
-        }
-
-        public HeightMap GenerateCompoundHeightMap(
-            float startX,
-            float startZ,
-            float size,
-            int resolution,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            FalloffSettings falloff)
-        {
-            return GenerateCompoundHeightMap(
-                startX,
-                startZ,
-                size,
-                resolution,
-                noise,
-                macro,
-                default,
-                null,
-                heightCurve,
-                water,
-                river,
-                default,
-                null,
-                falloff);
         }
 
         public HeightMap GenerateCompoundHeightMap(

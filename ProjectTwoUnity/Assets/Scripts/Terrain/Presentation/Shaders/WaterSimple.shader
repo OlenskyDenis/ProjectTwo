@@ -3,11 +3,13 @@ Shader "ProjectTwo/Terrain/WaterSimple"
     Properties
     {
         _BaseColor ("Water Color", Color) = (0.15, 0.48, 0.85, 0.85)
+        _Color ("Color Fallback", Color) = (0.15, 0.48, 0.85, 0.85)
         _ShallowColor ("Shallow Color", Color) = (0.25, 0.70, 0.90, 0.75)
         _FlowSpeed ("Flow Speed", Float) = 0.5
         _WaveScale ("Wave Scale", Float) = 10.0
     }
 
+    // SubShader 1: Universal Render Pipeline
     SubShader
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
@@ -25,6 +27,7 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -45,6 +48,7 @@ Shader "ProjectTwo/Terrain/WaterSimple"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
+                float4 _Color;
                 float4 _ShallowColor;
                 float _FlowSpeed;
                 float _WaveScale;
@@ -72,9 +76,9 @@ Shader "ProjectTwo/Terrain/WaterSimple"
                 float wave2 = cos((flowUV.x - flowUV.y) * (_WaveScale * 1.5) - time * 1.5);
                 float wave = (wave1 + wave2) * 0.5;
 
-                half4 finalColor = lerp(_BaseColor, _ShallowColor, wave * 0.3 + 0.5);
+                half4 baseCol = _BaseColor.a > 0.01 ? _BaseColor : _Color;
+                half4 finalColor = lerp(baseCol, _ShallowColor, wave * 0.3 + 0.5);
 
-                // Basic directional lighting
                 Light mainLight = GetMainLight();
                 float NdotL = saturate(dot(input.normalWS, mainLight.direction));
                 half3 diffuse = mainLight.color * (NdotL * 0.6 + 0.4);
@@ -83,8 +87,18 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             }
             ENDHLSL
         }
+    }
 
-        // Built-in render pipeline fallback pass
+    // SubShader 2: Built-in Render Pipeline Fallback
+    SubShader
+    {
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" }
+        LOD 150
+
+        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite Off
+        Cull Back
+
         Pass
         {
             Name "ForwardBase"
@@ -110,6 +124,7 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             };
 
             fixed4 _BaseColor;
+            fixed4 _Color;
             fixed4 _ShallowColor;
             float _FlowSpeed;
             float _WaveScale;
@@ -127,11 +142,13 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             {
                 float time = _Time.y * _FlowSpeed;
                 float wave = sin((i.uv.x + i.uv.y) * _WaveScale + time * 2.0) * 0.5 + 0.5;
-                fixed4 col = lerp(_BaseColor, _ShallowColor, wave * 0.3);
+                fixed4 baseCol = _BaseColor.a > 0.01 ? _BaseColor : _Color;
+                fixed4 col = lerp(baseCol, _ShallowColor, wave * 0.3);
                 return col;
             }
             ENDCG
         }
     }
+
     FallBack "Transparent/Diffuse"
 }

@@ -141,19 +141,19 @@ namespace ProjectTwo.Terrain.Editor
             serializedObject.Update();
             TerrainDataConfig config = (TerrainDataConfig)target;
 
-            EditorGUI.BeginChangeCheck();
-
-            // 1. Top Live Sync Header
+            // 1. Top Live Sync Header (Navigation & Manual Refresh)
             DrawLiveSyncHeader(config);
 
             EditorGUILayout.Space(6);
 
-            // 2. Navigation Tabs Toolbar
+            // 2. Navigation Tabs Toolbar (Pure UI state - does not trigger scene regeneration)
             DrawNavigationTabs();
 
             EditorGUILayout.Space(8);
 
-            // 3. Tab Contents
+            // 3. Tab Contents with explicit change tracking for serialized properties
+            EditorGUI.BeginChangeCheck();
+
             switch (_selectedTab)
             {
                 case 0:

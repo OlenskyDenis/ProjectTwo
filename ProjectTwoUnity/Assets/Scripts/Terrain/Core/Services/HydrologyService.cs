@@ -59,7 +59,7 @@ namespace ProjectTwo.Terrain.Core.Services
             // Fallback source on elevated ground
             if (sources.Count == 0)
             {
-                sources.Add(new Vector3(0f, minSourceHeight + 15f, 0f));
+                sources.Add(new Vector3(0f, SampleElevation(0f, 0f, baseTerrainShaper, noise, tectonics, water), 0f));
             }
 
             int nextNodeId = 0;
@@ -171,18 +171,48 @@ namespace ProjectTwo.Terrain.Core.Services
 
                     currentVelocity = flowDir;
 
-                    Vector3 nextPos = currentPos + new Vector3(flowDir.x, 0f, flowDir.y) * StepSize;
-                    float nextElev = SampleElevation(
+                    // Adaptive step size: take shorter steps on steep slopes/cliffs for smooth waterfalls
+                    float currentStepSize = gradMag > 0.35f
+                        ? Mathf.Lerp(StepSize, 6f, Mathf.Clamp01((gradMag - 0.35f) / 1.5f))
+                        : StepSize;
+
+                    Vector3 nextPos = currentPos + new Vector3(flowDir.x, 0f, flowDir.y) * currentStepSize;
+                    float terrainHeight = SampleElevation(
                         nextPos.x, nextPos.z, baseTerrainShaper, noise, tectonics, water);
 
-                    // Continuous channel incision: water surface must strictly decrease
-                    if (nextElev >= currentElevation)
+                    // Water surface strictly conforms to terrain elevation (never floats in the sky)
+                    float nextElev = Mathf.Min(currentElevation, terrainHeight);
+                    if (terrainHeight < nextElev)
                     {
-                        nextElev = currentElevation - 0.25f;
+                        nextElev = terrainHeight;
                     }
                     nextPos.y = nextElev;
 
-                    // Check for confluence with existing main river channels
+                    // Stop if reached sea level
+                    if (nextElev <= water.SeaLevel + 0.5f)
+                    {
+                        var mouthNode = new RiverNode(
+                            nextNodeId++,
+                            new Vector3(nextPos.x, water.SeaLevel, nextPos.z),
+                            RiverNodeType.OceanMouth,
+                            water.SeaLevel,
+                            flowAccumulation: 10f + step * 0.5f,
+                            streamOrder: currentStreamOrder + 1);
+                        nodes.Add(mouthNode);
+
+                        AddSegment(
+                            ref nextSegId,
+                            prevNodeId,
+                            mouthNode.Id,
+                            currentPos,
+                            mouthNode.Position,
+                            settings,
+                            streamOrder: currentStreamOrder + 1,
+                            segments);
+                        break;
+                    }
+
+                    // Check for confluence with existing river channels
                     int mergeNodeId = FindNearbyNode(nextPos, nodes, prevNodeId, MergeDistance);
                     if (mergeNodeId >= 0 && mergeNodeId != prevNodeId)
                     {
@@ -240,7 +270,8 @@ namespace ProjectTwo.Terrain.Core.Services
         {
             Vector3 mid = (startPos + endPos) * 0.5f;
             float len = Vector3.Distance(startPos, endPos);
-            float width = settings.BaseRiverWidth * Mathf.Pow(settings.WidthGrowthFactor, streamOrder - 1);
+            float widthMultiplier = streamOrder <= 1 ? 0.4f : (streamOrder == 2 ? 0.7f : Mathf.Pow(settings.WidthGrowthFactor, streamOrder - 2));
+            float width = Mathf.Max(2.5f, settings.BaseRiverWidth * widthMultiplier);
             float depth = settings.BaseCarveDepth * Mathf.Sqrt(streamOrder);
 
             segments.Add(new RiverSegment(
@@ -335,7 +366,7 @@ namespace ProjectTwo.Terrain.Core.Services
                 water,
                 RiverSettings.Default,
                 HydrologySettings.Default,
-                null,
+                RiverGraph.Empty,
                 FalloffSettings.Default);
         }
 
