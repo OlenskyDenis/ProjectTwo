@@ -95,6 +95,7 @@ namespace ProjectTwo.Terrain.Tests.Integration
 
             // Build river mesh for chunks covering origin
             var coord = new ChunkCoordinate(0, 0);
+            var ctx = new TerrainShaperContext(noise, MacroMaskSettings.Default, tectonics, null, HeightCurveSettings.Default, water, RiverSettings.Default, hydrology, graph, FalloffSettings.Default);
             var meshData = _riverMeshBuilder.BuildChunkRiverMesh(
                 coord,
                 240f,
@@ -102,8 +103,7 @@ namespace ProjectTwo.Terrain.Tests.Integration
                 hydrology,
                 water,
                 _shaper,
-                noise,
-                tectonics);
+                in ctx);
 
             Assert.IsNotNull(meshData);
         }

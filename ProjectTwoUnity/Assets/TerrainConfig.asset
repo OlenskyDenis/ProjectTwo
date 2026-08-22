@@ -15,31 +15,31 @@ MonoBehaviour:
   ChunkSize: 240
   ChunkResolution: 120
   NoiseSettings:
-    Type: 1
-    Seed: 662774
-    Scale: 400
-    Octaves: 5
-    Persistence: 0.533
-    Lacunarity: 2.1
-    HeightMultiplier: 227
+    Type: 0
+    Seed: 83066
+    Scale: 200
+    Octaves: 3
+    Persistence: 0.35
+    Lacunarity: 2
+    HeightMultiplier: 25
     Offset: {x: 0, y: 0}
   MacroSettings:
-    Enabled: 1
-    Seed: 777
-    Scale: 600
-    MountainAmplification: 2.2
-    ValleyDamping: 0.2
+    Enabled: 0
+    Seed: 999
+    Scale: 400
+    MountainAmplification: 2.5
+    ValleyDamping: 0.3
     PowerExponent: 1.5
   TectonicSettings:
-    Enabled: 1
-    Seed: 92675
-    PlateCount: 12
-    PlateScale: 1200
-    MountainUplift: 110
-    RiftDepth: 35
-    BoundaryInfluenceWidth: 320
-    RidgeSharpness: 1.7
-    FaultNoiseWarp: 0.35
+    Enabled: 0
+    Seed: 42
+    PlateCount: 8
+    PlateScale: 1500
+    MountainUplift: 20
+    RiftDepth: 10
+    BoundaryInfluenceWidth: 200
+    RidgeSharpness: 1
+    FaultNoiseWarp: 0.1
   HeightCurveSettings:
     UseCurve: 0
     ElevationCurve:
@@ -87,18 +87,18 @@ MonoBehaviour:
     BankSmoothness: 0.4
   HydrologySettings:
     Enabled: 1
-    Seed: 72782
-    SourceCount: 24
-    MinSourceElevationRatio: 0.5
-    BaseRiverWidth: 10
-    WidthGrowthFactor: 1.7
-    BaseCarveDepth: 16
-    BankSmoothness: 0.45
-    MeanderIntensity: 0.35
-    LakeMinDepthThreshold: 8
-    WaterfallStepSize: 1.5
-    HydraulicMomentum: 0.45
-    DeltaBranchingChance: 0.25
+    Seed: 14398
+    SourceCount: 12
+    MinSourceElevationRatio: 0.4
+    BaseRiverWidth: 14
+    WidthGrowthFactor: 1.6
+    BaseCarveDepth: 8
+    BankSmoothness: 0.6
+    MeanderIntensity: 0.5
+    LakeMinDepthThreshold: 5
+    WaterfallStepSize: 2
+    HydraulicMomentum: 0.55
+    DeltaBranchingChance: 0.35
   Regions:
   - Name: Deep Water
     HeightThreshold: 0.2
@@ -173,7 +173,7 @@ MonoBehaviour:
     VisibleDistanceThreshold: 600
     MeshResolutionStep: 6
     HasCollider: 0
-  MaxViewDistance: 600
+  MaxViewDistance: 100
   VisualProfile: {fileID: 11400000, guid: 58e3b4a2e185c67429dfa12b4e723910, type: 2}
   WaterVisualProfile: {fileID: 11400000, guid: 82d61ca5c7198e3489fe21a3e6894320, type: 2}
   TerrainMaterial: {fileID: 0}

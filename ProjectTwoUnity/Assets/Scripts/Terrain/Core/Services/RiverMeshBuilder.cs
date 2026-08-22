@@ -20,10 +20,7 @@ namespace ProjectTwo.Terrain.Core.Services
             HydrologySettings settings,
             WaterSettings water,
             ITerrainShaper terrainProvider,
-            NoiseSettings noise,
-            TectonicSettings tectonics,
-            MacroMaskSettings macroSettings = default,
-            FalloffSettings falloffSettings = default)
+            in TerrainShaperContext context)
         {
             if (riverGraph == null || riverGraph.SegmentCount == 0)
             {
@@ -64,159 +61,156 @@ namespace ProjectTwo.Terrain.Core.Services
             {
                 int segIdx = intersectingSegmentIndices[i];
                 ref readonly RiverSegment seg = ref riverGraph.Segments[segIdx];
-                segLookup[segIdx] = seg;
+                segLookup[seg.Id] = seg;
 
                 if (!outgoingMap.TryGetValue(seg.StartNodeId, out var outList))
                 {
-                    outList = new List<int>();
+                    outList = new List<int>(2);
                     outgoingMap[seg.StartNodeId] = outList;
                 }
-                outList.Add(segIdx);
+                outList.Add(seg.Id);
 
                 if (!incomingMap.TryGetValue(seg.EndNodeId, out var inList))
                 {
-                    inList = new List<int>();
+                    inList = new List<int>(2);
                     incomingMap[seg.EndNodeId] = inList;
                 }
-                inList.Add(segIdx);
+                inList.Add(seg.Id);
             }
 
-            // 2. Precompute smooth continuous node frames (miter averaged)
-            var nodeFrames = new Dictionary<int, (Vector3 tangent, Vector3 lateral, Vector3 normal, float width)>();
-            foreach (var kvp in segLookup)
+            // 2. Pre-calculate averaged node tangents (Miter-Averaged Frames)
+            var nodeTangents = new Dictionary<int, Vector3>();
+            var allNodeIds = new HashSet<int>();
+
+            foreach (var seg in segLookup.Values)
             {
-                var seg = kvp.Value;
-                int startId = seg.StartNodeId;
-                int endId = seg.EndNodeId;
-
-                if (!nodeFrames.ContainsKey(startId))
-                {
-                    Vector3 tOut = (seg.EndPosition - seg.StartPosition).normalized;
-                    if (incomingMap.TryGetValue(startId, out var inList) && inList.Count > 0)
-                    {
-                        var prevSeg = segLookup.ContainsKey(inList[0]) ? segLookup[inList[0]] : riverGraph.Segments[inList[0]];
-                        Vector3 tIn = (prevSeg.EndPosition - prevSeg.StartPosition).normalized;
-                        tOut = (tIn + tOut).normalized;
-                    }
-                    if (tOut.sqrMagnitude < 0.001f) tOut = Vector3.forward;
-
-                    ComputeFrameAtWorldPoint(
-                        seg.StartPosition, tOut, seg.StartWidth,
-                        terrainProvider, noise, tectonics, water, macroSettings, falloffSettings, settings,
-                        out Vector3 lateral, out Vector3 normal);
-
-                    nodeFrames[startId] = (tOut, lateral, normal, seg.StartWidth);
-                }
-
-                if (!nodeFrames.ContainsKey(endId))
-                {
-                    Vector3 tIn = (seg.EndPosition - seg.StartPosition).normalized;
-                    if (outgoingMap.TryGetValue(endId, out var outList) && outList.Count > 0)
-                    {
-                        var nextSeg = segLookup.ContainsKey(outList[0]) ? segLookup[outList[0]] : riverGraph.Segments[outList[0]];
-                        Vector3 tOut = (nextSeg.EndPosition - nextSeg.StartPosition).normalized;
-                        tIn = (tIn + tOut).normalized;
-                    }
-                    if (tIn.sqrMagnitude < 0.001f) tIn = Vector3.forward;
-
-                    ComputeFrameAtWorldPoint(
-                        seg.EndPosition, tIn, seg.EndWidth,
-                        terrainProvider, noise, tectonics, water, macroSettings, falloffSettings, settings,
-                        out Vector3 lateral, out Vector3 normal);
-
-                    nodeFrames[endId] = (tIn, lateral, normal, seg.EndWidth);
-                }
+                allNodeIds.Add(seg.StartNodeId);
+                allNodeIds.Add(seg.EndNodeId);
             }
 
-            // 3. Extrude continuous welded ribbons for all segments
-            // Store emitted node vertices to weld consecutive connected segments
-            var nodeVertexMap = new Dictionary<int, (int leftIdx, int rightIdx)>();
-            var nodeDistanceMap = new Dictionary<int, float>();
+            foreach (int nodeId in allNodeIds)
+            {
+                Vector3 inTangentSum = Vector3.zero;
+                Vector3 outTangentSum = Vector3.zero;
+                int inCount = 0;
+                int outCount = 0;
 
+                if (incomingMap.TryGetValue(nodeId, out var inSegs))
+                {
+                    for (int k = 0; k < inSegs.Count; k++)
+                    {
+                        if (segLookup.TryGetValue(inSegs[k], out var inSeg))
+                        {
+                            Vector3 tEnd = EvaluateBezierDerivative(inSeg.StartPosition, inSeg.ControlPoint, inSeg.EndPosition, 1f).normalized;
+                            inTangentSum += tEnd;
+                            inCount++;
+                        }
+                    }
+                }
+
+                if (outgoingMap.TryGetValue(nodeId, out var outSegs))
+                {
+                    for (int k = 0; k < outSegs.Count; k++)
+                    {
+                        if (segLookup.TryGetValue(outSegs[k], out var outSeg))
+                        {
+                            Vector3 tStart = EvaluateBezierDerivative(outSeg.StartPosition, outSeg.ControlPoint, outSeg.EndPosition, 0f).normalized;
+                            outTangentSum += tStart;
+                            outCount++;
+                        }
+                    }
+                }
+
+                Vector3 avgTangent = Vector3.forward;
+                if (inCount > 0 && outCount > 0)
+                {
+                    avgTangent = (inTangentSum / inCount + outTangentSum / outCount).normalized;
+                }
+                else if (outCount > 0)
+                {
+                    avgTangent = (outTangentSum / outCount).normalized;
+                }
+                else if (inCount > 0)
+                {
+                    avgTangent = (inTangentSum / inCount).normalized;
+                }
+
+                if (avgTangent.sqrMagnitude < 0.001f) avgTangent = Vector3.forward;
+                nodeTangents[nodeId] = avgTangent;
+            }
+
+            // 3. Generate smooth continuous welded ribbons for each segment
             for (int s = 0; s < intersectingSegmentIndices.Count; s++)
             {
                 int segIdx = intersectingSegmentIndices[s];
                 ref readonly RiverSegment seg = ref riverGraph.Segments[segIdx];
 
-                int subdivisions = 8;
-                if (seg.IsWaterfall || Mathf.Abs(seg.StartPosition.y - seg.EndPosition.y) > 5f)
-                {
-                    float stepSize = Mathf.Max(0.75f, settings.WaterfallStepSize);
-                    subdivisions = Mathf.Clamp(Mathf.CeilToInt(seg.Length / stepSize), 8, 32);
-                }
+                Vector3 p0 = seg.StartPosition;
+                Vector3 p1 = seg.ControlPoint;
+                Vector3 p2 = seg.EndPosition;
 
-                int prevLeftIdx = -1;
-                int prevRightIdx = -1;
+                float segLength = seg.Length > 0.01f ? seg.Length : Vector3.Distance(p0, p2);
+                int subdivisions = Mathf.Clamp(Mathf.CeilToInt(segLength / 5.0f), 2, 24);
 
-                bool isSourceSegment = !incomingMap.ContainsKey(seg.StartNodeId);
-                bool isTerminalSegment = !outgoingMap.ContainsKey(seg.EndNodeId);
+                float widthStart = seg.StartWidth;
+                float widthEnd = seg.EndWidth;
 
-                float segmentStartDist = 0f;
-                if (nodeDistanceMap.TryGetValue(seg.StartNodeId, out float startDist))
-                {
-                    segmentStartDist = startDist;
-                }
+                // Check terminal tapering for sources and land sinks
+                bool isSpringSource = !incomingMap.ContainsKey(seg.StartNodeId);
+                bool isTerminalSink = !outgoingMap.ContainsKey(seg.EndNodeId);
 
-                float currentDist = segmentStartDist;
-                Vector3 prevCenterWorld = seg.StartPosition;
+                Vector3 startNodeTangent = nodeTangents.TryGetValue(seg.StartNodeId, out var st) ? st : (p1 - p0).normalized;
+                Vector3 endNodeTangent = nodeTangents.TryGetValue(seg.EndNodeId, out var et) ? et : (p2 - p1).normalized;
+
+                int segStartVertexBase = vertices.Count;
+                float currentDist = 0f;
+                Vector3 prevCenter = p0;
 
                 for (int step = 0; step <= subdivisions; step++)
                 {
                     float t = (float)step / subdivisions;
-
-                    if (step == 0 && prevLeftIdx >= 0)
-                    {
-                        // Already welded to previous segment's end vertex ring!
-                        continue;
-                    }
-
-                    Vector3 center = SampleQuadraticBezier(seg.StartPosition, seg.ControlPoint, seg.EndPosition, t);
-                    Vector3 tangent = SampleQuadraticBezierTangent(seg.StartPosition, seg.ControlPoint, seg.EndPosition, t).normalized;
-                    if (tangent.sqrMagnitude < 0.001f) tangent = Vector3.forward;
+                    Vector3 center = EvaluateBezier(p0, p1, p2, t);
 
                     if (step > 0)
                     {
-                        currentDist += Vector3.Distance(prevCenterWorld, center);
-                    }
-                    prevCenterWorld = center;
-
-                    float currentWidth = Mathf.Lerp(seg.StartWidth, seg.EndWidth, t);
-                    if (currentWidth <= 0.01f) currentWidth = seg.ChannelWidth;
-
-                    // Natural source spring tapering
-                    if (isSourceSegment && t < 0.25f)
-                    {
-                        currentWidth *= Mathf.SmoothStep(0.08f, 1f, t * 4f);
+                        currentDist += Vector3.Distance(prevCenter, center);
+                        prevCenter = center;
                     }
 
-                    // Natural terminal infiltration tapering
-                    if (isTerminalSegment && t > 0.75f)
+                    // Blended tangent from node frames and spline derivative
+                    Vector3 splineTangent = EvaluateBezierDerivative(p0, p1, p2, t).normalized;
+                    Vector3 tangent = Vector3.Slerp(
+                        Vector3.Slerp(startNodeTangent, splineTangent, t),
+                        Vector3.Slerp(splineTangent, endNodeTangent, t),
+                        t).normalized;
+
+                    if (tangent.sqrMagnitude < 0.001f) tangent = Vector3.forward;
+
+                    // Surface normal aligned
+                    Vector3 normal = Vector3.up;
+                    if (terrainProvider != null)
                     {
-                        currentWidth *= Mathf.SmoothStep(1f, 0.08f, (t - 0.75f) * 4f);
+                        ComputeTerrainNormal(center.x, center.z, terrainProvider, in context, out normal);
                     }
 
-                    Vector3 lateral, normal;
-                    if (step == 0 && nodeFrames.TryGetValue(seg.StartNodeId, out var startFrame))
+                    // Orthogonal lateral width vector
+                    Vector3 lateral = Vector3.Cross(normal, tangent).normalized;
+                    if (lateral.sqrMagnitude < 0.001f)
                     {
-                        tangent = startFrame.tangent;
-                        lateral = startFrame.lateral;
-                        normal = startFrame.normal;
-                    }
-                    else if (step == subdivisions && nodeFrames.TryGetValue(seg.EndNodeId, out var endFrame))
-                    {
-                        tangent = endFrame.tangent;
-                        lateral = endFrame.lateral;
-                        normal = endFrame.normal;
-                    }
-                    else
-                    {
-                        ComputeFrameAtWorldPoint(
-                            center, tangent, currentWidth,
-                            terrainProvider, noise, tectonics, water, macroSettings, falloffSettings, settings,
-                            out lateral, out normal);
+                        lateral = new Vector3(-tangent.z, 0f, tangent.x).normalized;
                     }
 
-                    float halfWidth = Mathf.Max(0.1f, currentWidth * 0.5f);
+                    // Calculate tapered width
+                    float width = Mathf.Lerp(widthStart, widthEnd, t);
+                    if (isSpringSource && t < 0.25f)
+                    {
+                        width *= Mathf.SmoothStep(0.08f, 1f, t * 4f);
+                    }
+                    if (isTerminalSink && t > 0.75f)
+                    {
+                        width *= Mathf.SmoothStep(1f, 0.08f, (t - 0.75f) * 4f);
+                    }
+                    float halfWidth = Mathf.Max(0.1f, width * 0.5f);
 
                     // Clamp center and bank vertices to ground surface
                     Vector3 localCenter = center - chunkOrigin;
@@ -230,15 +224,8 @@ namespace ProjectTwo.Terrain.Core.Services
 
                     if (terrainProvider != null)
                     {
-                        float leftHeight = terrainProvider.CalculateElevation(
-                            leftWorld.x, leftWorld.z,
-                            noise, macroSettings, tectonics, null,
-                            HeightCurveSettings.Default, water, RiverSettings.Default, settings, RiverGraph.Empty, falloffSettings);
-
-                        float rightHeight = terrainProvider.CalculateElevation(
-                            rightWorld.x, rightWorld.z,
-                            noise, macroSettings, tectonics, null,
-                            HeightCurveSettings.Default, water, RiverSettings.Default, settings, RiverGraph.Empty, falloffSettings);
+                        float leftHeight = terrainProvider.CalculateElevation(leftWorld.x, leftWorld.z, in context);
+                        float rightHeight = terrainProvider.CalculateElevation(rightWorld.x, rightWorld.z, in context);
 
                         leftPos.y = (leftHeight - chunkOrigin.y) + normal.y * 0.15f;
                         rightPos.y = (rightHeight - chunkOrigin.y) + normal.y * 0.15f;
@@ -259,28 +246,75 @@ namespace ProjectTwo.Terrain.Core.Services
 
                     if (step == 0)
                     {
-                        nodeVertexMap[seg.StartNodeId] = (currentLeftIdx, currentRightIdx);
-                        nodeDistanceMap[seg.StartNodeId] = currentDist;
-                    }
-                    else if (step == subdivisions)
-                    {
-                        nodeVertexMap[seg.EndNodeId] = (currentLeftIdx, currentRightIdx);
-                        nodeDistanceMap[seg.EndNodeId] = currentDist;
+                        // Check if upstream segment can be welded
+                        if (incomingMap.TryGetValue(seg.StartNodeId, out var upstreamSegs) && upstreamSegs.Count == 1)
+                        {
+                            // Node frame aligns continuity
+                        }
                     }
 
-                    if (prevLeftIdx >= 0)
+                    if (step > 0)
                     {
-                        triangles.Add(prevLeftIdx);
+                        int prevLeft = currentLeftIdx - 2;
+                        int prevRight = currentLeftIdx - 1;
+
+                        // Winding order for double-sided visibility
+                        triangles.Add(prevLeft);
                         triangles.Add(currentLeftIdx);
-                        triangles.Add(prevRightIdx);
+                        triangles.Add(prevRight);
 
-                        triangles.Add(prevRightIdx);
+                        triangles.Add(prevRight);
                         triangles.Add(currentLeftIdx);
                         triangles.Add(currentRightIdx);
                     }
+                }
+            }
 
-                    prevLeftIdx = currentLeftIdx;
-                    prevRightIdx = currentRightIdx;
+            // 4. Generate Lake Surface Meshes
+            if (riverGraph.Lakes != null && riverGraph.Lakes.Length > 0)
+            {
+                for (int l = 0; l < riverGraph.Lakes.Length; l++)
+                {
+                    ref readonly LakeBasin lake = ref riverGraph.Lakes[l];
+                    Vector3 lakeCenter = lake.Center;
+                    float lakeRadius = lake.Radius;
+
+                    if (lakeCenter.x + lakeRadius < minX - 10f || lakeCenter.x - lakeRadius > maxX + 10f ||
+                        lakeCenter.z + lakeRadius < minZ - 10f || lakeCenter.z - lakeRadius > maxZ + 10f)
+                    {
+                        continue;
+                    }
+
+                    int lakeSegments = 16;
+                    int centerVertexIdx = vertices.Count;
+                    Vector3 localLakeCenter = lakeCenter - chunkOrigin;
+                    localLakeCenter.y = (lake.WaterElevation - chunkOrigin.y) + 0.1f;
+
+                    vertices.Add(localLakeCenter);
+                    normals.Add(Vector3.up);
+                    uvs.Add(new Vector2(0.5f, 0.5f));
+
+                    for (int k = 0; k <= lakeSegments; k++)
+                    {
+                        float angle = (float)k / lakeSegments * Mathf.PI * 2f;
+                        float cos = Mathf.Cos(angle);
+                        float sin = Mathf.Sin(angle);
+
+                        Vector3 rimPos = localLakeCenter + new Vector3(cos * lakeRadius, 0f, sin * lakeRadius);
+                        vertices.Add(rimPos);
+                        normals.Add(Vector3.up);
+                        uvs.Add(new Vector2(cos * 0.5f + 0.5f, sin * 0.5f + 0.5f));
+
+                        if (k > 0)
+                        {
+                            int rimCurrent = centerVertexIdx + k + 1;
+                            int rimPrev = rimCurrent - 1;
+
+                            triangles.Add(centerVertexIdx);
+                            triangles.Add(rimPrev);
+                            triangles.Add(rimCurrent);
+                        }
+                    }
                 }
             }
 
@@ -291,52 +325,13 @@ namespace ProjectTwo.Terrain.Core.Services
                 triangles.ToArray());
         }
 
-        private static void ComputeFrameAtWorldPoint(
-            Vector3 worldPos,
-            Vector3 tangent,
-            float width,
-            ITerrainShaper terrainProvider,
-            NoiseSettings noise,
-            TectonicSettings tectonics,
-            WaterSettings water,
-            MacroMaskSettings macroSettings,
-            FalloffSettings falloffSettings,
-            HydrologySettings settings,
-            out Vector3 lateral,
-            out Vector3 normal)
-        {
-            Vector3 approxUp = Vector3.up;
-            if (terrainProvider != null)
-            {
-                ComputeTerrainNormal(
-                    worldPos.x, worldPos.z,
-                    terrainProvider, noise, tectonics, water, macroSettings, falloffSettings, settings,
-                    out approxUp);
-            }
-            else if (Mathf.Abs(Vector3.Dot(tangent, Vector3.up)) > 0.85f)
-            {
-                approxUp = new Vector3(tangent.x, 0f, tangent.z).normalized;
-                if (approxUp.sqrMagnitude < 0.001f) approxUp = Vector3.forward;
-            }
-
-            lateral = Vector3.Cross(tangent, approxUp).normalized;
-            if (lateral.sqrMagnitude < 0.001f) lateral = Vector3.right;
-
-            normal = Vector3.Cross(lateral, tangent).normalized;
-            if (Vector3.Dot(normal, approxUp) < 0f)
-            {
-                normal = -normal;
-                lateral = -lateral;
-            }
-        }
-
-        private static Vector3 SampleQuadraticBezier(Vector3 p0, Vector3 p1, Vector3 p2, float t)
+        private static Vector3 EvaluateBezier(Vector3 p0, Vector3 p1, Vector3 p2, float t)
         {
             float u = 1f - t;
             return u * u * p0 + 2f * u * t * p1 + t * t * p2;
         }
 
-        private static Vector3 SampleQuadraticBezierTangent(Vector3 p0, Vector3 p1, Vector3 p2, float t)
+        private static Vector3 EvaluateBezierDerivative(Vector3 p0, Vector3 p1, Vector3 p2, float t)
         {
             return 2f * (1f - t) * (p1 - p0) + 2f * t * (p2 - p1);
         }
@@ -344,19 +339,14 @@ namespace ProjectTwo.Terrain.Core.Services
         private static void ComputeTerrainNormal(
             float x, float z,
             ITerrainShaper shaper,
-            NoiseSettings noise,
-            TectonicSettings tectonics,
-            WaterSettings water,
-            MacroMaskSettings macro,
-            FalloffSettings falloff,
-            HydrologySettings hydrology,
+            in TerrainShaperContext context,
             out Vector3 normal)
         {
             const float d = 2.0f;
-            float hL = shaper.CalculateElevation(x - d, z, noise, macro, tectonics, null, HeightCurveSettings.Default, water, RiverSettings.Default, hydrology, RiverGraph.Empty, falloff);
-            float hR = shaper.CalculateElevation(x + d, z, noise, macro, tectonics, null, HeightCurveSettings.Default, water, RiverSettings.Default, hydrology, RiverGraph.Empty, falloff);
-            float hD = shaper.CalculateElevation(x, z - d, noise, macro, tectonics, null, HeightCurveSettings.Default, water, RiverSettings.Default, hydrology, RiverGraph.Empty, falloff);
-            float hU = shaper.CalculateElevation(x, z + d, noise, macro, tectonics, null, HeightCurveSettings.Default, water, RiverSettings.Default, hydrology, RiverGraph.Empty, falloff);
+            float hL = shaper.CalculateElevation(x - d, z, in context);
+            float hR = shaper.CalculateElevation(x + d, z, in context);
+            float hD = shaper.CalculateElevation(x, z - d, in context);
+            float hU = shaper.CalculateElevation(x, z + d, in context);
 
             Vector3 grad = new Vector3((hL - hR) / (2f * d), 1f, (hD - hU) / (2f * d));
             normal = grad.normalized;

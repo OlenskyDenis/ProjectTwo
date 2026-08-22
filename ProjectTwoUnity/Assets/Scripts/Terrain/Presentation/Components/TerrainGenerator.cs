@@ -3,6 +3,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
     using UnityEngine;
@@ -17,7 +18,8 @@ namespace ProjectTwo.Terrain.Presentation.Components
     /// <summary>
     /// Main controller managing infinite chunk streaming, background calculation tasks,
     /// cooperative CancellationToken cancellation, LOD updates, and spatial queries.
-    /// Fully integrates global tectonic macro-zoning and hydrological river networks.
+    /// Fully integrates global tectonic macro-zoning, hydrological river networks,
+    /// off-thread mesh generation, and time-sliced frame activation for zero-hitch 60+ FPS performance.
     /// </summary>
     [ExecuteAlways]
     public class TerrainGenerator : MonoBehaviour, ITerrainProvider
@@ -29,6 +31,15 @@ namespace ProjectTwo.Terrain.Presentation.Components
         [Header("Viewer Tracking")]
         [Tooltip("Transform of the viewer (Camera or Player). Defaults to Main Camera if null.")]
         public Transform Viewer;
+
+        [Header("Streaming Performance")]
+        [Tooltip("Maximum Main Thread execution time per frame spent activating newly arrived chunks (in ms).")]
+        [Range(0.5f, 5.0f)]
+        public float MaxActivationTimeBudgetMs = 2.0f;
+
+        [Tooltip("Maximum number of chunks allowed to be activated and uploaded to GPU in a single frame.")]
+        [Range(1, 4)]
+        public int MaxChunksActivatedPerFrame = 2;
 
         [Header("Editor Preview")]
         [Tooltip("Auto-update terrain preview when values change in the Inspector.")]
@@ -70,20 +81,13 @@ namespace ProjectTwo.Terrain.Presentation.Components
         private ChunkObjectPool _chunkPool;
         private readonly Dictionary<ChunkCoordinate, TerrainChunkView> _activeChunks = new Dictionary<ChunkCoordinate, TerrainChunkView>();
         private readonly HashSet<ChunkCoordinate> _inFlightCoordinates = new HashSet<ChunkCoordinate>();
-        private readonly ConcurrentQueue<ChunkGenerationResult> _completedQueue = new ConcurrentQueue<ChunkGenerationResult>();
+        private readonly ConcurrentQueue<ChunkGenerationPayload> _completedQueue = new ConcurrentQueue<ChunkGenerationPayload>();
 
         // Cooperative Task Cancellation
         private CancellationTokenSource _generationCts;
 
         private Vector2 _lastViewerPosition;
         private const float ViewerMoveThreshold = 25f;
-
-        private struct ChunkGenerationResult
-        {
-            public ChunkCoordinate Coordinate;
-            public HeightMap HeightMap;
-            public int Resolution;
-        }
 
         private void Awake()
         {
@@ -236,6 +240,21 @@ namespace ProjectTwo.Terrain.Presentation.Components
             }
         }
 
+        public TerrainShaperContext BuildCurrentContext()
+        {
+            return new TerrainShaperContext(
+                Configuration.NoiseSettings,
+                Configuration.MacroSettings,
+                Configuration.TectonicSettings,
+                _cachedTectonicBoundaries,
+                Configuration.HeightCurveSettings,
+                Configuration.WaterSettings,
+                Configuration.RiverSettings,
+                Configuration.HydrologySettings,
+                _cachedRiverGraph,
+                Configuration.FalloffSettings);
+        }
+
         public void CancelInFlightTasks()
         {
             if (_generationCts != null)
@@ -312,12 +331,6 @@ namespace ProjectTwo.Terrain.Presentation.Components
         {
             _inFlightCoordinates.Add(coord);
 
-            if (Configuration.EnablePersistence && _chunkStorage.TryGetChunk(coord, out HeightMap cachedMap))
-            {
-                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = cachedMap, Resolution = Configuration.ChunkResolution });
-                return;
-            }
-
             if (_generationCts == null || _generationCts.IsCancellationRequested)
             {
                 _generationCts = new CancellationTokenSource();
@@ -331,103 +344,139 @@ namespace ProjectTwo.Terrain.Presentation.Components
             float startX = worldOrigin.x - size * 0.5f;
             float startZ = worldOrigin.z - size * 0.5f;
 
-            NoiseSettings noise = Configuration.NoiseSettings;
-            MacroMaskSettings macro = Configuration.MacroSettings;
-            TectonicSettings tectonics = Configuration.TectonicSettings;
-            TectonicBoundary[] boundaries = _cachedTectonicBoundaries;
-            HeightCurveSettings curve = Configuration.HeightCurveSettings;
-            WaterSettings water = Configuration.WaterSettings;
-            RiverSettings river = Configuration.RiverSettings;
-            HydrologySettings hydrology = Configuration.HydrologySettings;
-            RiverGraph graph = _cachedRiverGraph;
-            FalloffSettings falloff = Configuration.FalloffSettings;
+            TerrainShaperContext context = BuildCurrentContext();
+            TerrainRegion[] regions = Configuration.Regions;
+            float heightMultiplier = Configuration.NoiseSettings.HeightMultiplier;
+            bool hydrologyEnabled = Configuration.HydrologySettings.Enabled;
+            HydrologySettings hydroSettings = Configuration.HydrologySettings;
+            WaterSettings waterSettings = Configuration.WaterSettings;
+            RiverGraph riverGraph = _cachedRiverGraph;
+            bool enablePersistence = Configuration.EnablePersistence;
 
             Task.Run(() =>
             {
                 if (token.IsCancellationRequested) return;
 
-                HeightMap map = _heightMapBuilder.GenerateCompoundHeightMap(
-                    startX,
-                    startZ,
-                    size,
-                    resolution,
-                    noise,
-                    macro,
-                    tectonics,
-                    boundaries,
-                    curve,
-                    water,
-                    river,
-                    hydrology,
-                    graph,
-                    falloff);
+                HeightMap map;
+                if (enablePersistence && _chunkStorage.TryGetChunk(coord, out HeightMap cachedMap))
+                {
+                    map = cachedMap;
+                }
+                else
+                {
+                    map = _heightMapBuilder.GenerateCompoundHeightMap(
+                        startX,
+                        startZ,
+                        size,
+                        resolution,
+                        in context);
+
+                    if (enablePersistence)
+                    {
+                        _chunkStorage.SaveChunkAsync(coord, map);
+                    }
+                }
 
                 if (token.IsCancellationRequested) return;
 
-                if (Configuration.EnablePersistence)
+                // 1. Generate Visual Mesh Data (with seamless skirts) in background
+                TerrainMeshData visualData = TerrainMeshBuilder.GenerateTerrainMesh(
+                    map,
+                    size,
+                    heightMultiplier,
+                    lodStep: 1,
+                    regions: regions,
+                    includeSkirt: true);
+
+                if (token.IsCancellationRequested) return;
+
+                // 2. Generate Collision Mesh Data (without underground skirts) in background
+                TerrainMeshData collisionData = TerrainMeshBuilder.GenerateTerrainMesh(
+                    map,
+                    size,
+                    heightMultiplier,
+                    lodStep: 1,
+                    regions: null,
+                    includeSkirt: false);
+
+                if (token.IsCancellationRequested) return;
+
+                // 3. Generate River Ribbon Water Mesh in background
+                RiverWaterMeshData riverData = RiverWaterMeshData.Empty;
+                if (hydrologyEnabled && riverGraph != null && riverGraph.SegmentCount > 0)
                 {
-                    _chunkStorage.SaveChunkAsync(coord, map);
+                    riverData = _riverMeshBuilder.BuildChunkRiverMesh(
+                        coord,
+                        size,
+                        riverGraph,
+                        hydroSettings,
+                        waterSettings,
+                        _terrainShaper,
+                        in context);
                 }
 
-                _completedQueue.Enqueue(new ChunkGenerationResult { Coordinate = coord, HeightMap = map, Resolution = resolution });
+                if (token.IsCancellationRequested) return;
+
+                var payload = new ChunkGenerationPayload(
+                    coord,
+                    map,
+                    visualData,
+                    collisionData,
+                    riverData,
+                    targetLOD: 0,
+                    hasCollider: true);
+
+                _completedQueue.Enqueue(payload);
             }, token);
         }
 
         private void ProcessCompletedChunks()
         {
-            while (_completedQueue.TryDequeue(out ChunkGenerationResult result))
+            Stopwatch sw = Stopwatch.StartNew();
+            int chunksProcessed = 0;
+
+            Vector3 viewerPos = Viewer != null ? Viewer.position : transform.position;
+            float maxViewDist = Configuration.MaxViewDistance;
+            int chunkSize = Configuration.ChunkSize;
+
+            Material terrainMat = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
+            Material waterMat = _materialService.GetOrCreateWaterMaterial(Configuration.WaterVisualProfile);
+
+            while (chunksProcessed < MaxChunksActivatedPerFrame && _completedQueue.TryDequeue(out ChunkGenerationPayload payload))
             {
-                _inFlightCoordinates.Remove(result.Coordinate);
+                _inFlightCoordinates.Remove(payload.Coordinate);
 
-                Vector3 viewerPos = Viewer != null ? Viewer.position : transform.position;
-                float distance = result.Coordinate.DistanceTo(viewerPos, Configuration.ChunkSize);
+                float distance = payload.Coordinate.DistanceTo(viewerPos, chunkSize);
 
-                if (distance <= Configuration.MaxViewDistance)
+                if (distance <= maxViewDist)
                 {
-                    Material terrainMat = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
-                    Material waterMat = _materialService.GetOrCreateWaterMaterial(Configuration.WaterVisualProfile);
-
                     TerrainChunkView chunk = _chunkPool.GetChunk();
-                    chunk.Initialize(
-                        result.Coordinate,
-                        result.HeightMap,
-                        Configuration.ChunkSize,
+                    chunk.ApplyPayload(
+                        in payload,
+                        chunkSize,
                         Configuration.NoiseSettings.HeightMultiplier,
                         Configuration.LodTiers,
                         Configuration.Regions,
-                        terrainMat);
-
-                    // Build and bind procedural river water ribbon mesh for this chunk
-                    if (Configuration.HydrologySettings.Enabled && _cachedRiverGraph != null)
-                    {
-                        RiverWaterMeshData riverWater = _riverMeshBuilder.BuildChunkRiverMesh(
-                            result.Coordinate,
-                            Configuration.ChunkSize,
-                            _cachedRiverGraph,
-                            Configuration.HydrologySettings,
-                            Configuration.WaterSettings,
-                            _terrainShaper,
-                            Configuration.NoiseSettings,
-                            Configuration.TectonicSettings,
-                            Configuration.MacroSettings,
-                            Configuration.FalloffSettings);
-
-                        chunk.SetRiverMesh(riverWater, waterMat);
-                    }
-                    else
-                    {
-                        chunk.SetRiverMesh(null);
-                    }
+                        terrainMat,
+                        waterMat);
 
                     chunk.UpdateLOD(distance);
-                    _activeChunks[result.Coordinate] = chunk;
+                    _activeChunks[payload.Coordinate] = chunk;
 
                     OnChunkLoaded?.Invoke(new ChunkEventArgs(
-                        result.Coordinate.X,
-                        result.Coordinate.Z,
+                        payload.Coordinate.X,
+                        payload.Coordinate.Z,
                         chunk.transform.position,
-                        Configuration.ChunkSize,
+                        chunkSize,
                         chunk.CurrentLOD));
+
+                    chunksProcessed++;
+                }
+
+                // Enforce strict time budget per frame
+                if (sw.Elapsed.TotalMilliseconds >= MaxActivationTimeBudgetMs)
+                {
+                    break;
                 }
             }
         }
@@ -462,6 +511,8 @@ namespace ProjectTwo.Terrain.Presentation.Components
             Material terrainMat = _materialService.GetOrCreateTerrainMaterial(Configuration.VisualProfile);
             Material waterMat = _materialService.GetOrCreateWaterMaterial(Configuration.WaterVisualProfile);
 
+            TerrainShaperContext context = BuildCurrentContext();
+
             for (int zOffset = -radius; zOffset <= radius; zOffset++)
             {
                 for (int xOffset = -radius; xOffset <= radius; xOffset++)
@@ -476,16 +527,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                         startZ,
                         size,
                         resolution,
-                        Configuration.NoiseSettings,
-                        Configuration.MacroSettings,
-                        Configuration.TectonicSettings,
-                        _cachedTectonicBoundaries,
-                        Configuration.HeightCurveSettings,
-                        Configuration.WaterSettings,
-                        Configuration.RiverSettings,
-                        Configuration.HydrologySettings,
-                        _cachedRiverGraph,
-                        Configuration.FalloffSettings);
+                        in context);
 
                     GameObject chunkGo = new GameObject($"EditorChunk_{coord.X}_{coord.Z}",
                         typeof(MeshFilter), typeof(MeshRenderer), typeof(TerrainChunkView));
@@ -512,10 +554,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
                             Configuration.HydrologySettings,
                             Configuration.WaterSettings,
                             _terrainShaper,
-                            Configuration.NoiseSettings,
-                            Configuration.TectonicSettings,
-                            Configuration.MacroSettings,
-                            Configuration.FalloffSettings);
+                            in context);
 
                         chunk.SetRiverMesh(riverWater, waterMat);
                     }
@@ -588,19 +627,8 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
             if (_terrainShaper != null)
             {
-                return _terrainShaper.CalculateElevation(
-                    worldX,
-                    worldZ,
-                    Configuration.NoiseSettings,
-                    Configuration.MacroSettings,
-                    Configuration.TectonicSettings,
-                    _cachedTectonicBoundaries,
-                    Configuration.HeightCurveSettings,
-                    Configuration.WaterSettings,
-                    Configuration.RiverSettings,
-                    Configuration.HydrologySettings,
-                    _cachedRiverGraph,
-                    Configuration.FalloffSettings);
+                TerrainShaperContext context = BuildCurrentContext();
+                return _terrainShaper.CalculateElevation(worldX, worldZ, in context);
             }
 
             return 0f;

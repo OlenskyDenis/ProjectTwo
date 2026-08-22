@@ -30,30 +30,14 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             int resolution = 32;
             float size = 240f;
-            NoiseSettings noise = NoiseSettings.Default;
-            MacroMaskSettings macro = MacroMaskSettings.Default;
-            TectonicSettings tectonics = TectonicSettings.Default;
-            HeightCurveSettings curve = HeightCurveSettings.Default;
-            WaterSettings water = WaterSettings.Default;
-            RiverSettings river = RiverSettings.Default;
-            HydrologySettings hydrology = HydrologySettings.Default;
-            FalloffSettings falloff = FalloffSettings.Default;
+            var ctx = TerrainShaperContext.CreateDefault();
 
             HeightMap map = _builder.GenerateCompoundHeightMap(
                 0f,
                 0f,
                 size,
                 resolution,
-                noise,
-                macro,
-                tectonics,
-                null,
-                curve,
-                water,
-                river,
-                hydrology,
-                RiverGraph.Empty,
-                falloff);
+                in ctx);
 
             Assert.IsNotNull(map);
             Assert.AreEqual(resolution + 1, map.Width);
@@ -68,45 +52,32 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             float size = 240f;
             NoiseSettings noise = NoiseSettings.Default;
             noise.Seed = 777;
-            MacroMaskSettings macro = MacroMaskSettings.Default;
-            TectonicSettings tectonics = TectonicSettings.Default;
-            HeightCurveSettings curve = HeightCurveSettings.Default;
-            WaterSettings water = WaterSettings.Default;
-            RiverSettings river = RiverSettings.Default;
-            HydrologySettings hydrology = HydrologySettings.Default;
-            FalloffSettings falloff = FalloffSettings.Default;
+
+            var ctx = new TerrainShaperContext(
+                noise,
+                MacroMaskSettings.Default,
+                TectonicSettings.Default,
+                null,
+                HeightCurveSettings.Default,
+                WaterSettings.Default,
+                RiverSettings.Default,
+                HydrologySettings.Default,
+                RiverGraph.Empty,
+                FalloffSettings.Default);
 
             HeightMap map1 = _builder.GenerateCompoundHeightMap(
                 100f,
                 200f,
                 size,
                 resolution,
-                noise,
-                macro,
-                tectonics,
-                null,
-                curve,
-                water,
-                river,
-                hydrology,
-                RiverGraph.Empty,
-                falloff);
+                in ctx);
 
             HeightMap map2 = _builder.GenerateCompoundHeightMap(
                 100f,
                 200f,
                 size,
                 resolution,
-                noise,
-                macro,
-                tectonics,
-                null,
-                curve,
-                water,
-                river,
-                hydrology,
-                RiverGraph.Empty,
-                falloff);
+                in ctx);
 
             for (int x = 0; x < resolution + 1; x++)
             {
@@ -122,22 +93,14 @@ namespace ProjectTwo.Terrain.Tests.EditMode
         {
             int resolution = 12;
             float size = 240f;
+            var ctx = TerrainShaperContext.CreateDefault();
 
             HeightMap map = _builder.GenerateCompoundHeightMap(
                 0f,
                 0f,
                 size,
                 resolution,
-                NoiseSettings.Default,
-                MacroMaskSettings.Default,
-                TectonicSettings.Default,
-                null,
-                HeightCurveSettings.Default,
-                WaterSettings.Default,
-                RiverSettings.Default,
-                HydrologySettings.Default,
-                RiverGraph.Empty,
-                FalloffSettings.Default);
+                in ctx);
 
             float interpolated = map.InterpolateValue(0.5f, 0.5f);
             Assert.IsFalse(float.IsNaN(interpolated));

@@ -22,16 +22,7 @@ namespace ProjectTwo.Terrain.Core.Services
             float startZ,
             float size,
             int resolution,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
-            TectonicSettings tectonics,
-            TectonicBoundary[] tectonicBoundaries,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            HydrologySettings hydrology,
-            RiverGraph riverGraph,
-            FalloffSettings falloff)
+            in TerrainShaperContext context)
         {
             int vertexCount = resolution + 1;
             float[,] buffer = new float[vertexCount, vertexCount];
@@ -41,16 +32,7 @@ namespace ProjectTwo.Terrain.Core.Services
                 startZ,
                 size,
                 resolution,
-                noise,
-                macro,
-                tectonics,
-                tectonicBoundaries,
-                heightCurve,
-                water,
-                river,
-                hydrology,
-                riverGraph,
-                falloff,
+                in context,
                 buffer);
 
             float min = float.MaxValue;

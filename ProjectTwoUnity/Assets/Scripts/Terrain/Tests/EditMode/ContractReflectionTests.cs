@@ -10,7 +10,7 @@ namespace ProjectTwo.Terrain.Tests.EditMode
 
     /// <summary>
     /// Contract Reflection Test Suite guarding against architectural drift, stale method overloads,
-    /// and duplicate calculation pathways in violation of Constitution Principle I & VI.
+    /// parameter bloat, and duplicate calculation pathways in violation of Constitution Principle I & VI.
     /// </summary>
     [TestFixture]
     public class ContractReflectionTests
@@ -30,19 +30,17 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             Assert.AreEqual(1, genMethods.Length,
                 "ITerrainShaper must define EXACTLY 1 authoritative GenerateHeightMap method (no legacy overloads).");
 
-            // Verify that CalculateElevation has all 12 parameters (including Tectonics & Hydrology)
+            // Verify that CalculateElevation uses TerrainShaperContext (3 parameters)
             ParameterInfo[] calcParams = calcMethods[0].GetParameters();
-            Assert.AreEqual(12, calcParams.Length, "CalculateElevation must require all 12 domain parameters.");
-            Assert.IsTrue(calcParams.Any(p => p.ParameterType == typeof(TectonicSettings)), "CalculateElevation must take TectonicSettings.");
-            Assert.IsTrue(calcParams.Any(p => p.ParameterType == typeof(TectonicBoundary[])), "CalculateElevation must take TectonicBoundary[].");
-            Assert.IsTrue(calcParams.Any(p => p.ParameterType == typeof(HydrologySettings)), "CalculateElevation must take HydrologySettings.");
-            Assert.IsTrue(calcParams.Any(p => p.ParameterType == typeof(RiverGraph)), "CalculateElevation must take RiverGraph.");
+            Assert.AreEqual(3, calcParams.Length, "CalculateElevation must require exactly 3 parameters (worldX, worldZ, context).");
+            Assert.IsTrue(calcParams.Any(p => p.ParameterType.IsByRef && p.ParameterType.GetElementType() == typeof(TerrainShaperContext) || p.ParameterType == typeof(TerrainShaperContext)),
+                "CalculateElevation must take in TerrainShaperContext.");
 
-            // Verify that GenerateHeightMap has all 15 parameters
+            // Verify that GenerateHeightMap uses TerrainShaperContext (6 parameters)
             ParameterInfo[] genParams = genMethods[0].GetParameters();
-            Assert.AreEqual(15, genParams.Length, "GenerateHeightMap must require all 15 domain parameters.");
-            Assert.IsTrue(genParams.Any(p => p.ParameterType == typeof(TectonicSettings)), "GenerateHeightMap must take TectonicSettings.");
-            Assert.IsTrue(genParams.Any(p => p.ParameterType == typeof(HydrologySettings)), "GenerateHeightMap must take HydrologySettings.");
+            Assert.AreEqual(6, genParams.Length, "GenerateHeightMap must require exactly 6 parameters (startX, startZ, size, resolution, context, outputBuffer).");
+            Assert.IsTrue(genParams.Any(p => p.ParameterType.IsByRef && p.ParameterType.GetElementType() == typeof(TerrainShaperContext) || p.ParameterType == typeof(TerrainShaperContext)),
+                "GenerateHeightMap must take in TerrainShaperContext.");
             Assert.IsTrue(genParams.Any(p => p.ParameterType == typeof(float[,])), "GenerateHeightMap must take float[,] outputBuffer.");
         }
 
@@ -64,8 +62,8 @@ namespace ProjectTwo.Terrain.Tests.EditMode
 
             Assert.AreEqual(1, compoundMethods.Length,
                 "HeightMapBuilder must expose exactly 1 authoritative GenerateCompoundHeightMap method.");
-            Assert.AreEqual(14, compoundMethods[0].GetParameters().Length,
-                "GenerateCompoundHeightMap must accept the full 14 parameters (start coords, size, resolution, plus all domain settings).");
+            Assert.AreEqual(5, compoundMethods[0].GetParameters().Length,
+                "GenerateCompoundHeightMap must accept 5 parameters (startX, startZ, size, resolution, in context).");
 
             // Verify no obsolete raw noise bypass
             Assert.IsFalse(methods.Any(m => m.Name == "GenerateHeightMap" && m.GetParameters().Length == 4),

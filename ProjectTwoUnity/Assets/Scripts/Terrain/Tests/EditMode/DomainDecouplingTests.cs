@@ -5,6 +5,7 @@ namespace ProjectTwo.Terrain.Tests.EditMode
     using NUnit.Framework;
     using UnityEngine;
     using ProjectTwo.Terrain.Core.Models;
+    using ProjectTwo.Terrain.Core.Services;
 
     [TestFixture]
     public class DomainDecouplingTests
@@ -49,6 +50,30 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             Assert.AreNotEqual(desc1, desc3);
             Assert.IsTrue(desc1 != desc3);
             Assert.AreEqual(desc1.GetHashCode(), desc2.GetHashCode());
+        }
+
+        [Test]
+        public void OffThread_MeshGeneration_BuildsCompleteVisualAndCollisionBuffersWithoutMainThreadDependency()
+        {
+            var shaper = new ProceduralTerrainShaper();
+            var builder = new HeightMapBuilder(shaper);
+            var context = TerrainShaperContext.CreateDefault();
+
+            HeightMap map = builder.GenerateCompoundHeightMap(0f, 0f, 240f, 24, in context);
+            Assert.IsNotNull(map);
+
+            TerrainMeshData visualData = TerrainMeshBuilder.GenerateTerrainMesh(map, 240f, 60f, 1, null, includeSkirt: true);
+            TerrainMeshData collisionData = TerrainMeshBuilder.GenerateTerrainMesh(map, 240f, 60f, 1, null, includeSkirt: false);
+
+            Assert.IsNotNull(visualData.Vertices);
+            Assert.IsNotNull(visualData.Triangles);
+            Assert.IsNotNull(visualData.Normals);
+            Assert.Greater(visualData.Vertices.Length, 0);
+
+            Assert.IsNotNull(collisionData.Vertices);
+            Assert.IsNotNull(collisionData.Triangles);
+            Assert.Greater(collisionData.Vertices.Length, 0);
+            Assert.Less(collisionData.Vertices.Length, visualData.Vertices.Length, "Collision mesh without skirts should have fewer vertices than visual mesh with skirts.");
         }
     }
 }

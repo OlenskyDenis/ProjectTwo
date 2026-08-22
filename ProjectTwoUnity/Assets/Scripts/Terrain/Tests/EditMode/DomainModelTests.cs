@@ -4,10 +4,54 @@ namespace ProjectTwo.Terrain.Tests.EditMode
     using NUnit.Framework;
     using UnityEngine;
     using ProjectTwo.Terrain.Core.Models;
+    using ProjectTwo.Terrain.Presentation.Components;
 
     [TestFixture]
     public class DomainModelTests
     {
+        [Test]
+        public void TerrainShaperContext_DefaultInitialization_SetsAllProperties()
+        {
+            var ctx = TerrainShaperContext.CreateDefault();
+
+            Assert.IsNotNull(ctx.Noise);
+            Assert.IsNotNull(ctx.Macro);
+            Assert.IsNotNull(ctx.Tectonics);
+            Assert.IsNotNull(ctx.HeightCurve);
+            Assert.IsNotNull(ctx.Water);
+            Assert.IsNotNull(ctx.River);
+            Assert.IsNotNull(ctx.Hydrology);
+            Assert.IsNotNull(ctx.RiverGraph);
+            Assert.IsNotNull(ctx.Falloff);
+        }
+
+        [Test]
+        public void ChunkGenerationPayload_Initialization_PreservesProperties()
+        {
+            var coord = new ChunkCoordinate(2, 3);
+            var heightMap = new HeightMap(new float[4, 4]);
+            var visualData = new TerrainMeshData(4, 6);
+            var collisionData = new TerrainMeshData(4, 6);
+            var riverData = RiverWaterMeshData.Empty;
+
+            var payload = new ChunkGenerationPayload(
+                coord,
+                heightMap,
+                visualData,
+                collisionData,
+                riverData,
+                targetLOD: 0,
+                hasCollider: true);
+
+            Assert.AreEqual(coord, payload.Coordinate);
+            Assert.AreEqual(heightMap, payload.HeightMap);
+            Assert.AreEqual(visualData, payload.VisualMeshData);
+            Assert.AreEqual(collisionData, payload.CollisionMeshData);
+            Assert.AreEqual(riverData, payload.RiverMeshData);
+            Assert.AreEqual(0, payload.TargetLOD);
+            Assert.IsTrue(payload.HasCollider);
+        }
+
         [Test]
         public void NoiseSettings_Validate_ClampsInvalidParameters()
         {

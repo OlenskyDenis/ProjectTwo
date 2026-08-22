@@ -8,6 +8,7 @@ namespace ProjectTwo.Terrain.Presentation.Components
     /// Presentation component managing the GameObject, MeshFilter, MeshRenderer, and MeshCollider for a chunk.
     /// Completely decouples visual rendering mesh (with seamless skirts) from physical collision mesh
     /// (pure surface grid without underground skirts) to eliminate PhysX large-triangle warnings.
+    /// Supports direct off-thread pre-built ChunkGenerationPayload uploads for zero Main Thread latency.
     /// </summary>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class TerrainChunkView : MonoBehaviour
@@ -74,6 +75,79 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
             transform.position = coordinate.ToWorldPosition(chunkSize);
             CurrentLOD = -1;
+        }
+
+        /// <summary>
+        /// Instantaneously uploads pre-calculated visual, collision, and river meshes from a background worker payload.
+        /// Zero geometry math performed on the Main Thread.
+        /// </summary>
+        public void ApplyPayload(
+            in ChunkGenerationPayload payload,
+            float chunkSize,
+            float heightMultiplier,
+            LODInfo[] lodTiers,
+            TerrainRegion[] regions,
+            Material terrainMaterial,
+            Material riverMaterial)
+        {
+            Initialize(
+                payload.Coordinate,
+                payload.HeightMap,
+                chunkSize,
+                heightMultiplier,
+                lodTiers,
+                regions,
+                terrainMaterial);
+
+            CurrentLOD = payload.TargetLOD;
+
+            // 1. Upload Visual Mesh
+            if (_visualMesh == null)
+            {
+                _visualMesh = new Mesh { name = "TerrainVisualMesh" };
+                if (_meshFilter != null) _meshFilter.sharedMesh = _visualMesh;
+            }
+
+            if (payload.VisualMeshData != null)
+            {
+                payload.VisualMeshData.ApplyToMesh(_visualMesh);
+            }
+
+            // 2. Upload Pre-Computed Collision Mesh (instantaneous with Physics.BakeMesh)
+            if (_meshCollider != null)
+            {
+                if (Application.isPlaying && payload.HasCollider && payload.TargetLOD == 0 && payload.CollisionMeshData != null)
+                {
+                    if (_collisionMesh == null)
+                    {
+                        _collisionMesh = new Mesh { name = "TerrainCollisionMesh" };
+                    }
+
+                    payload.CollisionMeshData.ApplyToMesh(_collisionMesh);
+
+                    _meshCollider.sharedMesh = null;
+                    _meshCollider.sharedMesh = _collisionMesh;
+                    _meshCollider.enabled = true;
+                }
+                else
+                {
+                    if (_meshCollider.enabled)
+                    {
+                        _meshCollider.enabled = false;
+                    }
+                    _meshCollider.sharedMesh = null;
+                }
+            }
+
+            // 3. Upload River Water Mesh
+            if (payload.RiverMeshData != null && !payload.RiverMeshData.IsEmpty)
+            {
+                SetRiverMesh(payload.RiverMeshData, riverMaterial);
+            }
+            else
+            {
+                SetRiverMesh(null);
+            }
         }
 
         public void UpdateLOD(float distanceToViewer)

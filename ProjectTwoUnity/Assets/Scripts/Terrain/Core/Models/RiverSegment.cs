@@ -26,6 +26,7 @@ namespace ProjectTwo.Terrain.Core.Models
 
         public int FromNodeId => StartNodeId;
         public int ToNodeId => EndNodeId;
+        public int SegmentId => Id;
         public float FlowSpeed => FlowRate;
 
         public RiverSegment(

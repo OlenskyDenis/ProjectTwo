@@ -9,6 +9,7 @@ namespace ProjectTwo.Terrain.Core.Services
     /// Core procedural mathematical shaper calculating compound world elevation.
     /// Thread-safe pure C# service combining multi-type noise, macro mountain masks,
     /// non-linear curves, river channels, sea level baselines, and boundary falloff.
+    /// Strictly adheres to clean parameter encapsulation via TerrainShaperContext.
     /// </summary>
     public class ProceduralTerrainShaper : ITerrainShaper
     {
@@ -18,17 +19,19 @@ namespace ProjectTwo.Terrain.Core.Services
         public float CalculateElevation(
             float worldX,
             float worldZ,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
-            TectonicSettings tectonics,
-            TectonicBoundary[] tectonicBoundaries,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            HydrologySettings hydrology,
-            RiverGraph riverGraph,
-            FalloffSettings falloff)
+            in TerrainShaperContext context)
         {
+            NoiseSettings noise = context.Noise;
+            MacroMaskSettings macro = context.Macro;
+            TectonicSettings tectonics = context.Tectonics;
+            TectonicBoundary[] tectonicBoundaries = context.TectonicBoundaries;
+            HeightCurveSettings heightCurve = context.HeightCurve;
+            WaterSettings water = context.Water;
+            RiverSettings river = context.River;
+            HydrologySettings hydrology = context.Hydrology;
+            RiverGraph riverGraph = context.RiverGraph;
+            FalloffSettings falloff = context.Falloff;
+
             noise.Validate();
             macro.Validate();
             water.Validate();
@@ -173,23 +176,14 @@ namespace ProjectTwo.Terrain.Core.Services
             float startZ,
             float size,
             int resolution,
-            NoiseSettings noise,
-            MacroMaskSettings macro,
-            TectonicSettings tectonics,
-            TectonicBoundary[] tectonicBoundaries,
-            HeightCurveSettings heightCurve,
-            WaterSettings water,
-            RiverSettings river,
-            HydrologySettings hydrology,
-            RiverGraph riverGraph,
-            FalloffSettings falloff,
+            in TerrainShaperContext context,
             float[,] outputBuffer)
         {
             if (resolution < 1) resolution = 120;
             int vertexCount = resolution + 1;
             float stepSize = size / resolution;
 
-            float heightMultiplier = noise.HeightMultiplier > 0.0001f ? noise.HeightMultiplier : 1f;
+            float heightMultiplier = context.Noise.HeightMultiplier > 0.0001f ? context.Noise.HeightMultiplier : 1f;
 
             for (int y = 0; y < vertexCount; y++)
             {
@@ -200,16 +194,7 @@ namespace ProjectTwo.Terrain.Core.Services
                     float worldElevation = CalculateElevation(
                         currentX,
                         currentZ,
-                        noise,
-                        macro,
-                        tectonics,
-                        tectonicBoundaries,
-                        heightCurve,
-                        water,
-                        river,
-                        hydrology,
-                        riverGraph,
-                        falloff);
+                        in context);
 
                     // Store normalized height in [0, 1] range in the HeightMap buffer
                     outputBuffer[x, y] = worldElevation / heightMultiplier;
@@ -254,68 +239,72 @@ namespace ProjectTwo.Terrain.Core.Services
                 frequency *= settings.Lacunarity;
             }
 
-            float normalized = (settings.Type == NoiseType.PerlinFbm)
-                ? (noiseHeight / maxPossibleHeight + 1f) * 0.5f
-                : noiseHeight / maxPossibleHeight;
-
-            return Math.Max(0f, Math.Min(1f, normalized));
+            if (maxPossibleHeight > 0.0001f)
+            {
+                return Math.Max(0f, Math.Min(1f, noiseHeight / maxPossibleHeight));
+            }
+            return 0f;
         }
 
         private static float SamplePerlin01(float x, float z, float scale, int seed)
         {
-            int[] permutation = CreatePermutationTable(seed);
-            float sampleX = x / scale;
-            float sampleY = z / scale;
-            float raw = EvaluateGradientNoise(sampleX, sampleY, permutation);
-            return Math.Max(0f, Math.Min(1f, (raw + 1f) * 0.5f));
+            if (scale < 0.0001f) scale = 0.0001f;
+            int[] perm = CreatePermutationTable(seed);
+            return Math.Max(0f, Math.Min(1f, EvaluateGradientNoise(x / scale, z / scale, perm)));
         }
 
-        private static float SampleRiverMask(float x, float z, RiverSettings river)
+        private static float SampleRiverMask(float x, float z, RiverSettings settings)
         {
-            int[] permutation = CreatePermutationTable(river.Seed);
-            float sampleX = x * river.Frequency;
-            float sampleY = z * river.Frequency;
-
-            // Inverted ridge mask: absolute value close to 0 forms river centerlines
-            float n = Math.Abs(EvaluateGradientNoise(sampleX, sampleY, permutation));
-            float halfWidth = (river.RiverbedWidth * river.Frequency);
-            if (halfWidth <= 0.0001f) halfWidth = 0.05f;
-
-            if (n < halfWidth)
-            {
-                float t = n / halfWidth;
-                float mask = 1f - t;
-                // Smooth step
-                return mask * mask * (3f - 2f * mask);
-            }
-
-            return 0f;
+            if (settings.RiverbedWidth < 0.0001f) return 0f;
+            int[] perm = CreatePermutationTable(settings.Seed);
+            float nx = x / settings.Frequency;
+            float nz = z / settings.Frequency;
+            float n = EvaluateGradientNoise(nx, nz, perm);
+            float distFromCenter = Math.Abs(n - 0.5f) * 2f;
+            float channelFactor = 1f - Math.Min(1f, distFromCenter / (settings.RiverbedWidth / settings.Frequency));
+            return Math.Max(0f, channelFactor);
         }
 
-        private static float CalculateFalloffFactor(float x, float z, FalloffSettings falloff)
+        private static float CalculateFalloffFactor(float x, float z, FalloffSettings settings)
         {
-            float dist = 0f;
-            if (falloff.Mode == FalloffMode.Circular)
+            if (settings.Mode == FalloffMode.None) return 1f;
+
+            float dist = Math.Max(Math.Abs(x), Math.Abs(z));
+            if (settings.Mode == FalloffMode.Circular)
             {
                 dist = (float)Math.Sqrt(x * x + z * z);
             }
-            else if (falloff.Mode == FalloffMode.Square)
+
+            if (dist <= settings.FalloffStartRadius) return 1f;
+            if (dist >= settings.FalloffEndRadius) return 0f;
+
+            float t = (dist - settings.FalloffStartRadius) / (settings.FalloffEndRadius - settings.FalloffStartRadius);
+            float a = settings.PowerExponent > 0.01f ? settings.PowerExponent : 2.0f;
+            float b = 3f;
+            float falloff = (float)Math.Pow(t, a) / ((float)Math.Pow(t, a) + (float)Math.Pow(b - b * t, a));
+            return Math.Max(0f, Math.Min(1f, 1f - falloff));
+        }
+
+        private static int[] CreatePermutationTable(int seed)
+        {
+            int[] p = new int[512];
+            int[] permutation = new int[256];
+            for (int i = 0; i < 256; i++) permutation[i] = i;
+
+            System.Random prng = new System.Random(seed);
+            for (int i = 255; i > 0; i--)
             {
-                dist = Math.Max(Math.Abs(x), Math.Abs(z));
+                int swapIndex = prng.Next(i + 1);
+                int temp = permutation[i];
+                permutation[i] = permutation[swapIndex];
+                permutation[swapIndex] = temp;
             }
 
-            if (dist <= falloff.FalloffStartRadius) return 1f;
-            if (dist >= falloff.FalloffEndRadius) return 0f;
-
-            float range = falloff.FalloffEndRadius - falloff.FalloffStartRadius;
-            float t = (dist - falloff.FalloffStartRadius) / range;
-            float factor = 1f - t;
-            if (Math.Abs(falloff.PowerExponent - 1f) > 0.001f)
+            for (int i = 0; i < 512; i++)
             {
-                factor = (float)Math.Pow(factor, falloff.PowerExponent);
+                p[i] = permutation[i & 255];
             }
-
-            return Math.Max(0f, Math.Min(1f, factor));
+            return p;
         }
 
         private static float EvaluateGradientNoise(float x, float y, int[] p)
@@ -329,25 +318,21 @@ namespace ProjectTwo.Terrain.Core.Services
             float u = Fade(xf);
             float v = Fade(yf);
 
-            int aa = p[p[xi] + yi] % 8;
-            int ab = p[p[xi] + yi + 1] % 8;
-            int ba = p[p[xi + 1] + yi] % 8;
-            int bb = p[p[xi + 1] + yi + 1] % 8;
+            int aa = p[p[xi] + yi];
+            int ab = p[p[xi] + yi + 1];
+            int ba = p[p[xi + 1] + yi];
+            int bb = p[p[xi + 1] + yi + 1];
 
-            float x1 = Lerp(DotGridGradient(aa, xf, yf), DotGridGradient(ba, xf - 1f, yf), u);
-            float x2 = Lerp(DotGridGradient(ab, xf, yf - 1f), DotGridGradient(bb, xf - 1f, yf - 1f), u);
+            float x1 = Lerp(Grad(aa, xf, yf), Grad(ba, xf - 1, yf), u);
+            float x2 = Lerp(Grad(ab, xf, yf - 1), Grad(bb, xf - 1, yf - 1), u);
 
-            return Lerp(x1, x2, v);
-        }
-
-        private static float DotGridGradient(int gradIndex, float x, float y)
-        {
-            return GradientsX[gradIndex] * x + GradientsY[gradIndex] * y;
+            float result = Lerp(x1, x2, v);
+            return (result + 1f) * 0.5f;
         }
 
         private static float Fade(float t)
         {
-            return t * t * t * (t * (t * 6f - 15f) + 10f);
+            return t * t * t * (t * (t * 6 - 15) + 10);
         }
 
         private static float Lerp(float a, float b, float t)
@@ -355,33 +340,10 @@ namespace ProjectTwo.Terrain.Core.Services
             return a + t * (b - a);
         }
 
-        private static int[] CreatePermutationTable(int seed)
+        private static float Grad(int hash, float x, float y)
         {
-            int[] p = new int[512];
-            int[] baseTable = new int[256];
-
-            for (int i = 0; i < 256; i++)
-            {
-                baseTable[i] = i;
-            }
-
-            uint state = (uint)(seed ^ 0x5DEECE66DL);
-            for (int i = 255; i > 0; i--)
-            {
-                state = state * 1664525u + 1013904223u;
-                int j = (int)(state % (uint)(i + 1));
-
-                int temp = baseTable[i];
-                baseTable[i] = baseTable[j];
-                baseTable[j] = temp;
-            }
-
-            for (int i = 0; i < 512; i++)
-            {
-                p[i] = baseTable[i & 255];
-            }
-
-            return p;
+            int h = hash & 7;
+            return GradientsX[h] * x + GradientsY[h] * y;
         }
     }
 }

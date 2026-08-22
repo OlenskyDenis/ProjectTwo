@@ -674,8 +674,7 @@ namespace ProjectTwo.Terrain.Core.Services
             TectonicSettings tectonics,
             WaterSettings water)
         {
-            return shaper.CalculateElevation(
-                x, z,
+            var ctx = new TerrainShaperContext(
                 noise,
                 MacroMaskSettings.Default,
                 tectonics,
@@ -686,6 +685,8 @@ namespace ProjectTwo.Terrain.Core.Services
                 HydrologySettings.Default,
                 RiverGraph.Empty,
                 FalloffSettings.Default);
+
+            return shaper.CalculateElevation(x, z, in ctx);
         }
 
         private static void ComputeGradient(

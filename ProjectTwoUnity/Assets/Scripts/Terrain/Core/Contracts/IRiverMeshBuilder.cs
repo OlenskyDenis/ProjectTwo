@@ -18,9 +18,6 @@ namespace ProjectTwo.Terrain.Core.Contracts
             HydrologySettings settings,
             WaterSettings water,
             ITerrainShaper terrainProvider,
-            NoiseSettings noise,
-            TectonicSettings tectonics,
-            MacroMaskSettings macroSettings = default,
-            FalloffSettings falloffSettings = default);
+            in TerrainShaperContext context);
     }
 }

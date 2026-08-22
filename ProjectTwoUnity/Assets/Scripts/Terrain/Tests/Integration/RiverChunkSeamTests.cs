@@ -51,6 +51,8 @@ namespace ProjectTwo.Terrain.Tests.Integration
             river.Enabled = false;
             var falloff = FalloffSettings.Default;
 
+            var ctx = new TerrainShaperContext(noise, macro, tectonics, null, heightCurve, water, river, hydrology, graph, falloff);
+
             // Chunk A ends at X = 0, Chunk B starts at X = 0
             // Test 10 points along the boundary X = 0 for Z from -30 to +30
             for (int i = -15; i <= 15; i += 3)
@@ -58,13 +60,8 @@ namespace ProjectTwo.Terrain.Tests.Integration
                 float z = (float)i;
 
                 // Evaluate height exactly on border
-                float heightA = _shaper.CalculateElevation(
-                    0.0f, z,
-                    noise, macro, tectonics, null, heightCurve, water, river, hydrology, graph, falloff);
-
-                float heightB = _shaper.CalculateElevation(
-                    0.0f, z,
-                    noise, macro, tectonics, null, heightCurve, water, river, hydrology, graph, falloff);
+                float heightA = _shaper.CalculateElevation(0.0f, z, in ctx);
+                float heightB = _shaper.CalculateElevation(0.0f, z, in ctx);
 
                 Assert.AreEqual(heightA, heightB, 0.0001f, $"Heights across border at Z={z} must match perfectly.");
             }

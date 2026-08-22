@@ -55,6 +55,8 @@ namespace ProjectTwo.Terrain.Tests.Integration
             hydrology.Enabled = false;
             var falloff = FalloffSettings.Default;
 
+            var ctx = new TerrainShaperContext(noise, macro, tectonics, boundaries, heightCurve, water, river, hydrology, null, falloff);
+
             // Sample 20 points along the boundary segment
             int sampleCount = 20;
             float minElev = float.MaxValue;
@@ -65,19 +67,7 @@ namespace ProjectTwo.Terrain.Tests.Integration
                 float t = (float)i / (sampleCount - 1);
                 Vector2 pos = Vector2.Lerp(b.StartPoint, b.EndPoint, t);
 
-                float elev = _shaper.CalculateElevation(
-                    pos.x,
-                    pos.y,
-                    noise,
-                    macro,
-                    tectonics,
-                    boundaries,
-                    heightCurve,
-                    water,
-                    river,
-                    hydrology,
-                    null,
-                    falloff);
+                float elev = _shaper.CalculateElevation(pos.x, pos.y, in ctx);
 
                 if (elev < minElev) minElev = elev;
                 if (elev > maxElev) maxElev = elev;

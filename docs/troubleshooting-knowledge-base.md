@@ -247,38 +247,41 @@
   * Метод `ITerrainShaper.CalculateElevation` повертає висоту у реальних світових одиницях (наприклад, 45м).
   * У методі `HydrologyService.SampleElevation` обчислена висота повторно множилася на `noise.HeightMultiplier` ($45 \times 45 = 2025\text{м}$), що створювало квадратичне завищення висоти всіх вузлів річки ($HeightMultiplier^2$).
 * **Як вирішено**:
-  * Прибрано подвійне множення: `SampleElevation` тепер повертає безпосереднє значення з `shaper.CalculateElevation(...)`.
-* **Файли**: `HydrologyService.cs`, `RiverMeshBuilderTests.cs`.
+  * Прибрано подвійне множення: `SampleElevation` тепер повертає безпосер
+---
+
+<a name="bug-024"></a>
+### 24. BUG-024: Падіння FPS до 3–4 кадрів при стрімінгу (Main-Thread Synchronous Mesh Generation & PhysX Cooking Freeze)
+
+* **Симптоми**: При русі камери у PlayMode частота кадрів періодично просідала з 60+ FPS до 3–4 FPS, екран зависав на 250–400мс щоразу, коли камера перетинала межу чанка і завантажувалося кільце з 16–25 нових чанків.
+* **Першопричина (5 Whys Analysis)**:
+  1. **Фоновий потік генерував лише HeightMap**: У `Task.Run` обчислювався лише 2D-масив висот `HeightMap`. Уся подальша обробка скидалася в головний потік через `_completedQueue`.
+  2. **Синхронна генерація 3D геометрії в `Update()`**: При спрацюванні `ProcessCompletedChunks()` головний потік в одному кадрі синхронно виконував:
+     - `TerrainMeshBuilder.GenerateTerrainMesh` (візуальна сітка зі спідницями, 28,000+ вершин).
+     - `TerrainMeshBuilder.GenerateTerrainMesh` (колізійна сітка без спідниць).
+     - `RiverMeshBuilder.BuildChunkRiverMesh` (водні стрічки та озера).
+  3. **Синхронна кулінарія колізій PhysX на головному потоці**: Присвоєння `_meshCollider.sharedMesh = collisionMesh` викликало блокуючу синхронну триангуляцію PhysX BVH дерева (~10-15мс на чанк $\times 25$ чанків $= 375$мс зависання кадру).
+  4. **Відсутність тайм-слайсингу**: Усі готові чанки з черги активувалися в єдиному кадрі без обмеження за часом виконання.
+* **Як вирішено**:
+  1. **Повна асинхронна генерація сіток у фоні**: Усі обчислення геометрії (візуальна сітка, колізійна сітка, водна стрічка) перенесено всередину фонового завдання `Task.Run`, яке формує незмінний `ChunkGenerationPayload`.
+  2. **Гібридний тайм-слайсинг з лімітом бюджету (Time-Slicing Budget)**: У `TerrainGenerator.ProcessCompletedChunks` впроваджено ліміт за часом виконання ($\le 2.0\text{ms}$ через `System.Diagnostics.Stopwatch`) та ліміт за кількістю (максимум 2 чанки за 1 кадр). Залишок черги плавно активується у наступних кадрах без жодного мікро-фрізу.
+  3. **Миттєве завантаження буферів у GPU**: Метод `TerrainChunkView.ApplyPayload` виконує лише швидке присвоєння готових вершин та індексів (`ApplyToMesh`) за $<0.1\text{ms}$.
+* **Файли**: `TerrainGenerator.cs`, `TerrainChunkView.cs`, `ChunkGenerationPayload.cs`, `TerrainShaperContext.cs`.
 
 ---
 
-<a name="bug-015"></a>
-### 15. BUG-015: Перестрибування гірських схилів на водоспадах та плоске вивертання річкової стрічки
+<a name="bug-025"></a>
+### 25. BUG-025: Роздування сигнатур інтерфейсів (Long Parameter Signature Drift)
 
-* **Симптоми**: Гірські потоки та водоспади перетворювалися на жорсткі широкі планки у повітрі на схилах гір (перестрибуючи через форму скелі).
-* **Першопричина**:
-  1. Фіксований крок трасування `StepSize = 25m` на крутих схилах перестрибував 40–60 метрів перепаду висоти за один сегмент.
-  2. Горизонтальний вектор ширини `lateral = (-tangent.z, 0, tangent.x)` на вертикальних ділянках вивертав річкову стрічку ребром до схилу.
-  3. Витоки річок на вершинах мали надмірну фіксовану ширину.
+* **Симптоми**: Сигнатури ключових методів предметної області (`ITerrainShaper.CalculateElevation`, `ITerrainShaper.GenerateHeightMap`, `HeightMapBuilder.GenerateCompoundHeightMap`) розрослися до 12–15 окремих параметрів (`noise`, `macro`, `tectonics`, `boundaries`, `curve`, `water`, `river`, `hydrology`, `graph`, `falloff`...), що призводило до помилок виклику, складнощів тестування та порушення принципів чистої архітектури (Clean Code & SRP).
+* **Першопричина (5 Whys Analysis)**:
+  1. З кожною новою фічею (тектоніка, гідрологія, криві висот) нові структури параметрів додавалися безпосередньо як нові аргументи в кінець або середину сигнатур.
+  2. Відсутність єдиної структури контексту domain-конфігурації призводила до потреби прокидати 15 параметрів через 4 проміжні рівні сервісів.
 * **Як вирішено**:
-  * **Адаптивний крок**: На крутих схилах крок трасування зменшується до 6м (`Mathf.Lerp(StepSize, 6f, ...)`).
-  * **3D-орієнтація нормалей**: Поперечний вектор ширини розраховується через 3D векторний добуток із врахуванням кута нахилу водоспаду (`Vector3.Cross(tangent, approxUp)`).
-  * **Динамічна ширина**: Гірські витоки починаються вузькими струмочками (2.5м) і розширюються по мірі злиття у великі річки.
-* **Файли**: `HydrologyService.cs`, `RiverMeshBuilder.cs`, `RiverMeshBuilderTests.cs`.
-
----
-
-<a name="bug-016"></a>
-### 16. BUG-016: Перезапис налаштувань біомів через SerializedObject та залипання вкладок інспектора
-
-* **Симптоми**:
-  1. Клік по кнопках пір року («Літо», «Осінь», «Зима») не змінював кольори рельєфу в сцені або скидав їх назад у наступному кадрі.
-  2. Перемикання вкладок у `TerrainDataConfigEditor` переставало реагувати на кліки після вибору однієї з вкладок.
-* **Першопричина**:
-  1. Пряма зміна `config.Regions = ...` на C#-об'єкті відбувалася без синхронізації з `SerializedObject`. У кінці кадру виклик `serializedObject.ApplyModifiedProperties()` перезаписував масив старими даними з кешу серіалізації.
-  2. Виклик `GUIUtility.ExitGUI()` всередині обробників кнопок переривав IMGUI життєвий цикл винятком `ExitGUIException`, блокуючи стан `GUILayout.Toolbar`.
-* **Як вирішено**:
-  * **Централізований метод `ApplySeasonBiome`**: Здійснює `Undo.RecordObject`, присвоює масив, викликає `EditorUtility.SetDirty(config)`, оновлює `serializedObject.Update()` і тригерить `RegenerateActiveSceneTerrain()`.
+  1. **Інкапсуляція в `TerrainShaperContext`**: Створено незмінну `readonly struct TerrainShaperContext`, яка чисто інкапсулює всі параметри шуму, тектоніки, кривих, гідрології та масок.
+  2. **Передача за посиланням без копіювання**: Усі методи приймають контекст через `in TerrainShaperContext context`, що гарантує нульовий оверхед виділення пам'яті в купі (0B Garbage Collection) та ультра-високу продуктивність.
+* **Файли**: `TerrainShaperContext.cs`, `ITerrainShaper.cs`, `ProceduralTerrainShaper.cs`, `HeightMapBuilder.cs`, `RiverMeshBuilder.cs`, `TerrainGenerator.cs`, `ContractReflectionTests.cs`.
+easonBiome`**: Здійснює `Undo.RecordObject`, присвоює масив, викликає `EditorUtility.SetDirty(config)`, оновлює `serializedObject.Update()` і тригерить `RegenerateActiveSceneTerrain()`.
   * **Безпечна зміна вкладок**: Тулбар обгорнуто в `EditorGUI.BeginChangeCheck()` / `EditorGUI.EndChangeCheck()` з очищенням фокусу (`GUI.FocusControl(null)` та `GUIUtility.keyboardControl = 0`) без використання `ExitGUI()`.
 * **Файли**: `TerrainDataConfigEditor.cs`.
 
@@ -382,6 +385,41 @@
      - Для кінцевих точок без океану ширина плавно сходить нанівець до $0.1$м через `Mathf.SmoothStep(1f, 0.08f, (t - 0.75f) * 4f)`, безшовно ховаючись у ґрунті.
   2. **Кумулятивна світова дистанція UV**: Координата $V$ тепер розраховується строго монотонно від фізичної довжини сплайна (`currentDist * 0.05f`), усуваючи будь-який муар.
 * **Файли**: `RiverMeshBuilder.cs`, `AdvancedHydrologyTests.cs`.
+
+---
+
+<a name="bug-024"></a>
+### 24. BUG-024: Падіння FPS до 3–4 кадрів при стрімінгу (Main-Thread Synchronous Mesh Generation & PhysX Cooking Freeze)
+
+* **Симптоми**: При русі камери у PlayMode частота кадрів періодично просідала з 60+ FPS до 3–4 FPS, екран зависав на 250–400мс щоразу, коли камера перетинала межу чанка і завантажувалося кільце з 16–25 нових чанків.
+* **Першопричина (5 Whys Analysis)**:
+  1. **Фоновий потік генерував лише HeightMap**: У `Task.Run` обчислювався лише 2D-масив висот `HeightMap`. Уся подальша обробка скидалася в головний потік через `_completedQueue`.
+  2. **Синхронна генерація 3D геометрії в `Update()`**: При спрацюванні `ProcessCompletedChunks()` головний потік в одному кадрі синхронно виконував:
+     - `TerrainMeshBuilder.GenerateTerrainMesh` (візуальна сітка зі спідницями, 28,000+ вершин).
+     - `TerrainMeshBuilder.GenerateTerrainMesh` (колізійна сітка без спідниць).
+     - `RiverMeshBuilder.BuildChunkRiverMesh` (водні стрічки та озера).
+  3. **Синхронна кулінарія колізій PhysX на головному потоці**: Присвоєння `_meshCollider.sharedMesh = collisionMesh` викликало блокуючу синхронну триангуляцію PhysX BVH дерева (~10-15мс на чанк $\times 25$ чанків $= 375$мс зависання кадру).
+  4. **Відсутність тайм-слайсингу**: Усі готові чанки з черги активувалися в єдиному кадрі без обмеження за часом виконання.
+* **Як вирішено**:
+  1. **Повна асинхронна генерація сіток у фоні**: Усі обчислення геометрії (візуальна сітка, колізійна сітка, водна стрічка) перенесено всередину фонового завдання `Task.Run`, яке формує незмінний `ChunkGenerationPayload`.
+  2. **Гібридний тайм-слайсинг з лімітом бюджету (Time-Slicing Budget)**: У `TerrainGenerator.ProcessCompletedChunks` впроваджено ліміт за часом виконання ($\le 2.0\text{ms}$ через `System.Diagnostics.Stopwatch`) та ліміт за кількістю (максимум 2 чанки за 1 кадр). Залишок черги плавно активується у наступних кадрах без жодного мікро-фрізу.
+  3. **Миттєве завантаження буферів у GPU**: Метод `TerrainChunkView.ApplyPayload` виконує лише швидке присвоєння готових вершин та індексів (`ApplyToMesh`) за $<0.1\text{ms}$.
+* **Файли**: `TerrainGenerator.cs`, `TerrainChunkView.cs`, `ChunkGenerationPayload.cs`, `TerrainShaperContext.cs`.
+
+---
+
+<a name="bug-025"></a>
+### 25. BUG-025: Роздування сигнатур інтерфейсів (Long Parameter Signature Drift)
+
+* **Симптоми**: Сигнатури ключових методів предметної області (`ITerrainShaper.CalculateElevation`, `ITerrainShaper.GenerateHeightMap`, `HeightMapBuilder.GenerateCompoundHeightMap`) розрослися до 12–15 окремих параметрів (`noise`, `macro`, `tectonics`, `boundaries`, `curve`, `water`, `river`, `hydrology`, `graph`, `falloff`...), що призводило до помилок виклику, складнощів тестування та порушення принципів чистої архітектури (Clean Code & SRP).
+* **Першопричина (5 Whys Analysis)**:
+  1. З кожною новою фічею (тектоніка, гідрологія, криві висот) нові структури параметрів додавалися безпосередньо як нові аргументи в кінець або середину сигнатур.
+  2. Відсутність єдиної структури контексту domain-конфігурації призводила до потреби прокидати 15 параметрів через 4 проміжні рівні сервісів.
+* **Як вирішено**:
+  1. **Інкапсуляція в `TerrainShaperContext`**: Створено незмінну `readonly struct TerrainShaperContext`, яка чисто інкапсулює всі параметри шуму, тектоніки, кривих, гідрології та масок.
+  2. **Передача за посиланням без копіювання**: Усі методи приймають контекст через `in TerrainShaperContext context`, що гарантує нульовий оверхед виділення пам'яті в купі (0B Garbage Collection) та ультра-високу продуктивність.
+* **Файли**: `TerrainShaperContext.cs`, `ITerrainShaper.cs`, `ProceduralTerrainShaper.cs`, `HeightMapBuilder.cs`, `RiverMeshBuilder.cs`, `TerrainGenerator.cs`, `ContractReflectionTests.cs`.
+
 
 
 
