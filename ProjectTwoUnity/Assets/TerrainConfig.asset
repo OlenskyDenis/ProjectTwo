@@ -16,12 +16,12 @@ MonoBehaviour:
   ChunkResolution: 120
   NoiseSettings:
     Type: 1
-    Seed: 62450
-    Scale: 160
+    Seed: 662774
+    Scale: 400
     Octaves: 5
-    Persistence: 0.5
+    Persistence: 0.533
     Lacunarity: 2.1
-    HeightMultiplier: 80
+    HeightMultiplier: 227
     Offset: {x: 0, y: 0}
   MacroSettings:
     Enabled: 1
@@ -32,7 +32,7 @@ MonoBehaviour:
     PowerExponent: 1.5
   TectonicSettings:
     Enabled: 1
-    Seed: 71753
+    Seed: 92675
     PlateCount: 12
     PlateScale: 1200
     MountainUplift: 110
@@ -87,7 +87,7 @@ MonoBehaviour:
     BankSmoothness: 0.4
   HydrologySettings:
     Enabled: 1
-    Seed: 26228
+    Seed: 72782
     SourceCount: 24
     MinSourceElevationRatio: 0.5
     BaseRiverWidth: 10
@@ -96,61 +96,64 @@ MonoBehaviour:
     BankSmoothness: 0.45
     MeanderIntensity: 0.35
     LakeMinDepthThreshold: 8
+    WaterfallStepSize: 1.5
+    HydraulicMomentum: 0.45
+    DeltaBranchingChance: 0.25
   Regions:
   - Name: Deep Water
     HeightThreshold: 0.2
     SlopeThreshold: 0
     ColorTint: {r: 0.1, g: 0.25, b: 0.65, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
-    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Shallow Water
     HeightThreshold: 0.35
     SlopeThreshold: 0
     ColorTint: {r: 0.2, g: 0.5, b: 0.85, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
-    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Sand Beach
     HeightThreshold: 0.4
     SlopeThreshold: 0
     ColorTint: {r: 0.85, g: 0.8, b: 0.5, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: b1ee38c80b52cba41bddcdc26fbfdb1f, type: 3}
-    NormalMap: {fileID: 2800000, guid: fe29e84a64933d644a67ef6571e6c781, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Green Grass
     HeightThreshold: 0.65
     SlopeThreshold: 0
     ColorTint: {r: 0.3, g: 0.65, b: 0.25, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: e435ef1565a01e540848378d11d92371, type: 3}
-    NormalMap: {fileID: 2800000, guid: 43586f20ffbe74042a33f1899b7e1aca, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Pine Forest
     HeightThreshold: 0.75
     SlopeThreshold: 0
     ColorTint: {r: 0.18, g: 0.45, b: 0.15, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: e435ef1565a01e540848378d11d92371, type: 3}
-    NormalMap: {fileID: 2800000, guid: 43586f20ffbe74042a33f1899b7e1aca, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Grey Mountain Rock
     HeightThreshold: 0.9
     SlopeThreshold: 35
     ColorTint: {r: 0.5, g: 0.45, b: 0.4, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: 84b43bf5542c3cb41b68cf657febca68, type: 3}
-    NormalMap: {fileID: 2800000, guid: 0dd2f27fb6b010440ad733cd36df60a0, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   - Name: Snowy Peaks
     HeightThreshold: 1
     SlopeThreshold: 0
     ColorTint: {r: 0.95, g: 0.95, b: 0.98, a: 1}
-    AlbedoTexture: {fileID: 2800000, guid: 6b26803b855fc794484cbb2d4440a236, type: 3}
-    NormalMap: {fileID: 2800000, guid: 9765adb22ee0f294788556648776c3a8, type: 3}
+    AlbedoTexture: {fileID: 0}
+    NormalMap: {fileID: 0}
     Tiling: {x: 1, y: 1}
     BlendSoftness: 0.1
   LodTiers:

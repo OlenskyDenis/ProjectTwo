@@ -405,7 +405,12 @@ namespace ProjectTwo.Terrain.Presentation.Components
                             Configuration.ChunkSize,
                             _cachedRiverGraph,
                             Configuration.HydrologySettings,
-                            Configuration.WaterSettings);
+                            Configuration.WaterSettings,
+                            _terrainShaper,
+                            Configuration.NoiseSettings,
+                            Configuration.TectonicSettings,
+                            Configuration.MacroSettings,
+                            Configuration.FalloffSettings);
 
                         chunk.SetRiverMesh(riverWater, waterMat);
                     }
@@ -505,7 +510,12 @@ namespace ProjectTwo.Terrain.Presentation.Components
                             size,
                             _cachedRiverGraph,
                             Configuration.HydrologySettings,
-                            Configuration.WaterSettings);
+                            Configuration.WaterSettings,
+                            _terrainShaper,
+                            Configuration.NoiseSettings,
+                            Configuration.TectonicSettings,
+                            Configuration.MacroSettings,
+                            Configuration.FalloffSettings);
 
                         chunk.SetRiverMesh(riverWater, waterMat);
                     }

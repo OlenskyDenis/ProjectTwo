@@ -17,9 +17,16 @@ namespace ProjectTwo.Terrain.Core.Models
         public Vector3 EndPosition;
         public float Length;
         public float ChannelWidth;
+        public float StartWidth;
+        public float EndWidth;
         public float CarveDepth;
         public int StreamOrder;
         public float FlowRate;
+        public bool IsWaterfall;
+
+        public int FromNodeId => StartNodeId;
+        public int ToNodeId => EndNodeId;
+        public float FlowSpeed => FlowRate;
 
         public RiverSegment(
             int id,
@@ -32,7 +39,10 @@ namespace ProjectTwo.Terrain.Core.Models
             float channelWidth,
             float carveDepth,
             int streamOrder,
-            float flowRate)
+            float flowRate,
+            float startWidth = 0f,
+            float endWidth = 0f,
+            bool isWaterfall = false)
         {
             Id = id;
             StartNodeId = startNodeId;
@@ -42,9 +52,12 @@ namespace ProjectTwo.Terrain.Core.Models
             EndPosition = endPosition;
             Length = length;
             ChannelWidth = channelWidth;
+            StartWidth = startWidth > 0f ? startWidth : channelWidth;
+            EndWidth = endWidth > 0f ? endWidth : channelWidth;
             CarveDepth = carveDepth;
             StreamOrder = streamOrder;
             FlowRate = flowRate;
+            IsWaterfall = isWaterfall;
         }
 
         public bool Equals(RiverSegment other)
@@ -57,9 +70,12 @@ namespace ProjectTwo.Terrain.Core.Models
                    EndPosition == other.EndPosition &&
                    Mathf.Approximately(Length, other.Length) &&
                    Mathf.Approximately(ChannelWidth, other.ChannelWidth) &&
+                   Mathf.Approximately(StartWidth, other.StartWidth) &&
+                   Mathf.Approximately(EndWidth, other.EndWidth) &&
                    Mathf.Approximately(CarveDepth, other.CarveDepth) &&
                    StreamOrder == other.StreamOrder &&
-                   Mathf.Approximately(FlowRate, other.FlowRate);
+                   Mathf.Approximately(FlowRate, other.FlowRate) &&
+                   IsWaterfall == other.IsWaterfall;
         }
 
         public override bool Equals(object obj) => obj is RiverSegment other && Equals(other);
@@ -77,9 +93,12 @@ namespace ProjectTwo.Terrain.Core.Models
                 hash = hash * 31 + EndPosition.GetHashCode();
                 hash = hash * 31 + Length.GetHashCode();
                 hash = hash * 31 + ChannelWidth.GetHashCode();
+                hash = hash * 31 + StartWidth.GetHashCode();
+                hash = hash * 31 + EndWidth.GetHashCode();
                 hash = hash * 31 + CarveDepth.GetHashCode();
                 hash = hash * 31 + StreamOrder;
                 hash = hash * 31 + FlowRate.GetHashCode();
+                hash = hash * 31 + IsWaterfall.GetHashCode();
                 return hash;
             }
         }

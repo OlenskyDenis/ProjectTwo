@@ -33,6 +33,36 @@ namespace ProjectTwo.Terrain.Core.Models
         /// <summary>
         /// Terminal river mouth discharging into the sea / ocean at base water level.
         /// </summary>
-        OceanMouth = 5
+        OceanMouth = 5,
+
+        /// <summary>
+        /// Steep cliff-conforming vertical cascade / waterfall ribbon.
+        /// </summary>
+        Waterfall = 6,
+
+        /// <summary>
+        /// Fast turbulent rocky spillway or rapids connecting lake tiers.
+        /// </summary>
+        Rapids = 7,
+
+        /// <summary>
+        /// Inflow channel entering a lake basin.
+        /// </summary>
+        LakeInflow = 8,
+
+        /// <summary>
+        /// Outflow spillway emerging from a lake saddle rim.
+        /// </summary>
+        LakeOutflow = 9,
+
+        /// <summary>
+        /// Lowland bifurcation point splitting a river channel into multiple branches.
+        /// </summary>
+        Bifurcation = 10,
+
+        /// <summary>
+        /// Distributary delta mouth discharging into coastal flats or ocean.
+        /// </summary>
+        DeltaMouth = 11
     }
 }

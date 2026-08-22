@@ -193,9 +193,9 @@ namespace ProjectTwo.Terrain.Presentation.Components
 
             _riverMesh.Clear();
             _riverMesh.vertices = riverMeshData.Vertices;
-            _riverMesh.normals = riverMeshData.Normals;
             _riverMesh.uv = riverMeshData.UVs;
             _riverMesh.triangles = riverMeshData.Triangles;
+            _riverMesh.RecalculateNormals();
             _riverMesh.RecalculateBounds();
 
             if (_riverMeshRenderer != null && riverMaterial != null)

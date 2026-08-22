@@ -41,8 +41,11 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             var graph = new RiverGraph(null, segments, null);
             var hydrology = HydrologySettings.Default;
             var water = WaterSettings.Default;
+            var shaper = new ProceduralTerrainShaper();
+            var noise = NoiseSettings.Default;
+            var tectonics = TectonicSettings.Default;
 
-            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, hydrology, water);
+            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, hydrology, water, shaper, noise, tectonics);
 
             Assert.IsNotNull(meshData);
             Assert.IsFalse(meshData.IsEmpty);
@@ -75,8 +78,11 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             var graph = new RiverGraph(null, segments, null);
             var hydrology = HydrologySettings.Default;
             var water = WaterSettings.Default;
+            var shaper = new ProceduralTerrainShaper();
+            var noise = NoiseSettings.Default;
+            var tectonics = TectonicSettings.Default;
 
-            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, hydrology, water);
+            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, hydrology, water, shaper, noise, tectonics);
 
             Assert.IsNotNull(meshData);
             Assert.IsTrue(meshData.IsEmpty, "Non-intersecting chunk should return empty river mesh data.");
@@ -103,7 +109,10 @@ namespace ProjectTwo.Terrain.Tests.EditMode
             };
 
             var graph = new RiverGraph(null, segments, null);
-            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, HydrologySettings.Default, WaterSettings.Default);
+            var shaper = new ProceduralTerrainShaper();
+            var noise = NoiseSettings.Default;
+            var tectonics = TectonicSettings.Default;
+            var meshData = _meshBuilder.BuildChunkRiverMesh(coord, chunkSize, graph, HydrologySettings.Default, WaterSettings.Default, shaper, noise, tectonics);
 
             Assert.IsFalse(meshData.IsEmpty);
             for (int i = 0; i < meshData.Vertices.Length; i++)

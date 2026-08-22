@@ -17,7 +17,7 @@ Shader "ProjectTwo/Terrain/WaterSimple"
 
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
-        Cull Back
+        Cull Off
 
         Pass
         {
@@ -70,20 +70,35 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             half4 frag(Varyings input) : SV_Target
             {
                 float time = _Time.y * _FlowSpeed;
-                float2 flowUV = input.uv + float2(0.0, time * 0.2);
+                float3 normal = normalize(input.normalWS);
 
-                float wave1 = sin((flowUV.x + flowUV.y) * _WaveScale + time * 2.0);
-                float wave2 = cos((flowUV.x - flowUV.y) * (_WaveScale * 1.5) - time * 1.5);
-                float wave = (wave1 + wave2) * 0.5;
+                // Smooth bank factor: 0 at shoreline edges, 1 in deep river center
+                float bankFactor = sin(saturate(input.uv.x) * 3.14159265);
 
-                half4 baseCol = _BaseColor.a > 0.01 ? _BaseColor : _Color;
-                half4 finalColor = lerp(baseCol, _ShallowColor, wave * 0.3 + 0.5);
+                // Gentle longitudinal flow ripples (no harsh diagonal checkerboard)
+                float flow1 = sin(input.uv.y * 1.2 - time * 2.5);
+                float flow2 = cos(input.uv.y * 2.0 - time * 1.8);
+                float ripple = (flow1 + flow2) * 0.04;
 
+                half4 deepColor = _BaseColor.a > 0.01 ? _BaseColor : _Color;
+                half4 finalWaterCol = lerp(_ShallowColor, deepColor, saturate(bankFactor * 1.1 + ripple));
+
+                // Natural diffuse lighting
                 Light mainLight = GetMainLight();
-                float NdotL = saturate(dot(input.normalWS, mainLight.direction));
-                half3 diffuse = mainLight.color * (NdotL * 0.6 + 0.4);
+                float NdotL = saturate(dot(normal, mainLight.direction));
+                half3 diffuse = mainLight.color * (NdotL * 0.7 + 0.3);
 
-                return half4(finalColor.rgb * diffuse, finalColor.a);
+                // Subtle specular sunlight highlight on water surface
+                float3 viewDir = normalize(GetCameraPositionWS() - input.positionWS);
+                float3 halfVector = normalize(mainLight.direction + viewDir);
+                float specFactor = pow(saturate(dot(normal, halfVector)), 48.0) * 0.15;
+                half3 specular = mainLight.color * specFactor;
+
+                // Soft shoreline alpha blending: fades gently into the riverbed
+                float alpha = lerp(_ShallowColor.a * 0.4, deepColor.a, bankFactor);
+
+                half3 finalRGB = finalWaterCol.rgb * diffuse + specular;
+                return half4(finalRGB, alpha);
             }
             ENDHLSL
         }
@@ -97,7 +112,7 @@ Shader "ProjectTwo/Terrain/WaterSimple"
 
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
-        Cull Back
+        Cull Off
 
         Pass
         {
@@ -141,9 +156,12 @@ Shader "ProjectTwo/Terrain/WaterSimple"
             fixed4 frag(v2f i) : SV_Target
             {
                 float time = _Time.y * _FlowSpeed;
-                float wave = sin((i.uv.x + i.uv.y) * _WaveScale + time * 2.0) * 0.5 + 0.5;
-                fixed4 baseCol = _BaseColor.a > 0.01 ? _BaseColor : _Color;
-                fixed4 col = lerp(baseCol, _ShallowColor, wave * 0.3);
+                float bankFactor = sin(saturate(i.uv.x) * 3.14159265);
+                float flow = sin(i.uv.y * 1.5 - time * 2.0) * 0.05;
+
+                fixed4 deepCol = _BaseColor.a > 0.01 ? _BaseColor : _Color;
+                fixed4 col = lerp(_ShallowColor, deepCol, saturate(bankFactor + flow));
+                col.a = lerp(_ShallowColor.a * 0.35, deepCol.a, bankFactor);
                 return col;
             }
             ENDCG

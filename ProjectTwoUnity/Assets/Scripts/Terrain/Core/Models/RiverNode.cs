@@ -15,6 +15,9 @@ namespace ProjectTwo.Terrain.Core.Models
         public float Elevation;
         public float FlowAccumulation;
         public int StreamOrder;
+        public float SlopeAngle;
+
+        public RiverNodeType Type => NodeType;
 
         public RiverNode(
             int id,
@@ -22,7 +25,8 @@ namespace ProjectTwo.Terrain.Core.Models
             RiverNodeType nodeType,
             float elevation,
             float flowAccumulation,
-            int streamOrder)
+            int streamOrder,
+            float slopeAngle = 0f)
         {
             Id = id;
             Position = position;
@@ -30,6 +34,7 @@ namespace ProjectTwo.Terrain.Core.Models
             Elevation = elevation;
             FlowAccumulation = flowAccumulation;
             StreamOrder = streamOrder;
+            SlopeAngle = slopeAngle;
         }
 
         public bool Equals(RiverNode other)
@@ -39,7 +44,8 @@ namespace ProjectTwo.Terrain.Core.Models
                    NodeType == other.NodeType &&
                    Mathf.Approximately(Elevation, other.Elevation) &&
                    Mathf.Approximately(FlowAccumulation, other.FlowAccumulation) &&
-                   StreamOrder == other.StreamOrder;
+                   StreamOrder == other.StreamOrder &&
+                   Mathf.Approximately(SlopeAngle, other.SlopeAngle);
         }
 
         public override bool Equals(object obj) => obj is RiverNode other && Equals(other);
@@ -55,6 +61,7 @@ namespace ProjectTwo.Terrain.Core.Models
                 hash = hash * 31 + Elevation.GetHashCode();
                 hash = hash * 31 + FlowAccumulation.GetHashCode();
                 hash = hash * 31 + StreamOrder;
+                hash = hash * 31 + SlopeAngle.GetHashCode();
                 return hash;
             }
         }

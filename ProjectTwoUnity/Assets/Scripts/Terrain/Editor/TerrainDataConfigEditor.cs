@@ -758,7 +758,10 @@ namespace ProjectTwo.Terrain.Editor
                 BaseCarveDepth = 16f,
                 BankSmoothness = 0.45f,
                 MeanderIntensity = 0.35f,
-                LakeMinDepthThreshold = 8f
+                LakeMinDepthThreshold = 8f,
+                WaterfallStepSize = 1.5f,
+                HydraulicMomentum = 0.45f,
+                DeltaBranchingChance = 0.25f
             };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
@@ -810,7 +813,10 @@ namespace ProjectTwo.Terrain.Editor
                 BaseCarveDepth = 10f,
                 BankSmoothness = 0.4f,
                 MeanderIntensity = 0.25f,
-                LakeMinDepthThreshold = 6f
+                LakeMinDepthThreshold = 6f,
+                WaterfallStepSize = 1.5f,
+                HydraulicMomentum = 0.35f,
+                DeltaBranchingChance = 0.4f
             };
             config.FalloffSettings = new FalloffSettings
             {
@@ -874,7 +880,10 @@ namespace ProjectTwo.Terrain.Editor
                 BaseCarveDepth = 8f,
                 BankSmoothness = 0.6f,
                 MeanderIntensity = 0.5f,
-                LakeMinDepthThreshold = 5f
+                LakeMinDepthThreshold = 5f,
+                WaterfallStepSize = 2.0f,
+                HydraulicMomentum = 0.55f,
+                DeltaBranchingChance = 0.35f
             };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
@@ -926,7 +935,10 @@ namespace ProjectTwo.Terrain.Editor
                 BaseCarveDepth = 26f,
                 BankSmoothness = 0.35f,
                 MeanderIntensity = 0.6f,
-                LakeMinDepthThreshold = 10f
+                LakeMinDepthThreshold = 10f,
+                WaterfallStepSize = 1.2f,
+                HydraulicMomentum = 0.45f,
+                DeltaBranchingChance = 0.15f
             };
             config.FalloffSettings = FalloffSettings.Default;
             config.WaterSettings = WaterSettings.Default;
